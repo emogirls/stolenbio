@@ -26,7 +26,7 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           supabase: ['@supabase/supabase-js'],
-          ui: ['lucide-react', '@radix-ui/react-avatar', '@radix-ui/react-button']
+          ui: ['lucide-react']
         }
       }
     }

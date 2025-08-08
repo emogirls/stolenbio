@@ -52,7 +52,7 @@ export function AuthForm({ onAuthSuccess }: AuthFormProps) {
         throw new Error('Username can only contain letters, numbers, and underscores');
       }
 
-      const result = await api.signup(signupForm.email, signupForm.password, signupForm.username);
+      await api.signup(signupForm.email, signupForm.password, signupForm.username);
       
       // Sign in the user after successful signup
       const supabase = getSupabaseClient();

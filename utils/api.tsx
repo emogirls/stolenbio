@@ -5,7 +5,6 @@ if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('your-project-id') 
   console.warn('⚠️  API client created with missing or placeholder Supabase credentials');
 }
 
-const projectId = supabaseUrl?.replace('https://', '').replace('.supabase.co', '') || '';
 const API_BASE_URL = supabaseUrl ? `${supabaseUrl}/functions/v1/make-server-69c4ff4c` : '';
 
 export interface Profile {

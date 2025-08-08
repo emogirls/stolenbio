@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -430,7 +430,7 @@ export function Dashboard({ accessToken, initialProfile, onSignOut }: DashboardP
                           {userData.description}
                         </p>
                         <div className="flex gap-1 mt-auto">
-                          {userData.socialLinks.slice(0, 4).map((link, i) => (
+                          {userData.socialLinks.slice(0, 4).map((_, i) => (
                             <div key={i} className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs">
                               🔗
                             </div>
