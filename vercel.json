@@ -9,11 +9,6 @@
     { "source": "/dashboard", "destination": "/index.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
-  "functions": {
-    "supabase/functions/server/index.tsx": {
-      "runtime": "nodejs18"
-    }
-  },
   "env": {
     "VITE_SUPABASE_URL": "https://eunktufcvnarizlnrfej.supabase.co",
     "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bmt0dWZjdm5hcml6bG5yZmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2MDIzNTcsImV4cCI6MjA3MDE3ODM1N30.YPhd7abpLcK3zSAP1tWPi0K0jRotu3E8RS2hzlmi9vg",
