@@ -82,13 +82,16 @@ A modern biolink platform that allows users to create personalized link hub page
    - Note down your project URL and API keys
 
 4. **Configure Environment Variables in Vercel**
-   - Go to your Vercel project settings
-   - Add the following environment variables:
+   - Go to your Vercel project settings → Environment Variables
+   - Add the following environment variables (using underscores, not dashes):
      ```
-     SUPABASE_URL=your-supabase-project-url
-     SUPABASE_ANON_KEY=your-supabase-anon-key
-     SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+     vite_supabase_url=https://your-project-id.supabase.co
+     vite_supabase_anon_key=your-supabase-anon-key
+     supabase_url=https://your-project-id.supabase.co
+     supabase_anon_key=your-supabase-anon-key
+     supabase_service_role_key=your-supabase-service-role-key
      ```
+   - Note: Vercel environment variable names cannot contain dashes, so we use underscores
 
 5. **Deploy**
    - Vercel will automatically deploy your project

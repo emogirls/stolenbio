@@ -24,10 +24,10 @@
     }
   },
   "env": {
-    "VITE_SUPABASE_URL": "@vite-supabase-url",
-    "VITE_SUPABASE_ANON_KEY": "@vite-supabase-anon-key",
-    "SUPABASE_URL": "@supabase-url",
-    "SUPABASE_ANON_KEY": "@supabase-anon-key",
-    "SUPABASE_SERVICE_ROLE_KEY": "@supabase-service-role-key"
+    "VITE_SUPABASE_URL": "@vite_supabase_url",
+    "VITE_SUPABASE_ANON_KEY": "@vite_supabase_anon_key",
+    "SUPABASE_URL": "@supabase_url",
+    "SUPABASE_ANON_KEY": "@supabase_anon_key", 
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key"
   }
 }
