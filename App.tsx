@@ -1,179 +1,128 @@
-import { useState, useEffect } from "react";
-import { AuthForm } from "./components/AuthForm";
-import { Dashboard } from "./components/Dashboard";
-import { PublicBiolink } from "./components/PublicBiolink";
-import { getSupabaseClient } from "./utils/supabase/client";
-import { api, Profile } from "./utils/api";
-import { Loader2, AlertTriangle } from "lucide-react";
-import { Alert, AlertDescription } from "./components/ui/alert";
+import React, { useState, useEffect } from 'react'
+import { AuthForm } from './components/AuthForm'
+import { Dashboard } from './components/Dashboard'
+import { PublicProfile } from './components/PublicProfile'
+import { createClient } from '@supabase/supabase-js'
+import { supabaseUrl, publicAnonKey } from './utils/supabase/info'
 
-type AppState = 'loading' | 'setup' | 'public' | 'auth' | 'dashboard';
+const supabase = createClient(
+  supabaseUrl,
+  publicAnonKey
+)
+
+type User = {
+  id: string
+  email: string
+}
 
 export default function App() {
-  const [appState, setAppState] = useState<AppState>('loading');
-  const [user, setUser] = useState<any>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<Profile | null>(null);
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [currentView, setCurrentView] = useState<'auth' | 'dashboard' | 'profile'>('auth')
+  const [profileUsername, setProfileUsername] = useState<string>('')
 
-  // Check for existing session on app load
   useEffect(() => {
-    checkSetupAndSession();
-  }, []);
-
-  const checkSetupAndSession = async () => {
-    // Check if environment variables are properly set
-    const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || '';
-    const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
-    
-    if (!supabaseUrl || !supabaseAnonKey || 
-        supabaseUrl.includes('your-project-id') || 
-        supabaseAnonKey.includes('your-anon-key')) {
-      setAppState('setup');
-      return;
+    // Check for existing session
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email!
+          })
+          setCurrentView('dashboard')
+        }
+      } catch (error) {
+        console.error('Session check error:', error)
+      } finally {
+        setLoading(false)
+      }
     }
 
-    // Environment is configured, check session
-    await checkSession();
-  };
+    checkSession()
 
-  const checkSession = async () => {
+    // Check URL for profile view
+    const path = window.location.pathname
+    if (path.startsWith('/profile/')) {
+      const username = path.split('/profile/')[1]
+      if (username) {
+        setProfileUsername(username)
+        setCurrentView('profile')
+        setLoading(false)
+      }
+    } else if (path === '/dashboard' && user) {
+      setCurrentView('dashboard')
+    }
+  }, [])
+
+  const handleLogin = (userData: User) => {
+    setUser(userData)
+    setCurrentView('dashboard')
+    window.history.pushState({}, '', '/dashboard')
+  }
+
+  const handleLogout = async () => {
     try {
-      const supabase = getSupabaseClient();
-      if (!supabase) {
-        setAppState('setup');
-        return;
-      }
-
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Session check error:', error);
-        setAppState('public');
-        return;
-      }
-      
-      if (session?.access_token) {
-        // User is signed in, load their profile
-        await handleAuthSuccess(session.user, session.access_token);
-      } else {
-        // No session, show public page
-        setAppState('public');
-      }
+      await supabase.auth.signOut()
+      setUser(null)
+      setCurrentView('auth')
+      window.history.pushState({}, '', '/')
     } catch (error) {
-      console.error('Session check failed:', error);
-      setAppState('public');
+      console.error('Logout error:', error)
     }
-  };
+  }
 
-  const handleAuthSuccess = async (user: any, token: string) => {
-    try {
-      setUser(user);
-      setAccessToken(token);
-      
-      // Load user profile
-      const { profile } = await api.getCurrentUserProfile(token);
-      setUserProfile(profile);
-      setAppState('dashboard');
-    } catch (error) {
-      console.error('Failed to load user profile:', error);
-      // If profile loading fails, sign out the user
-      handleSignOut();
-    }
-  };
+  const viewProfile = (username: string) => {
+    setProfileUsername(username)
+    setCurrentView('profile')
+    window.history.pushState({}, '', `/profile/${username}`)
+  }
 
-  const handleSignOut = () => {
-    setUser(null);
-    setAccessToken(null);
-    setUserProfile(null);
-    setAppState('public');
-  };
+  const goToDashboard = () => {
+    setCurrentView('dashboard')
+    window.history.pushState({}, '', '/dashboard')
+  }
 
-  const navigateToAuth = () => {
-    setAppState('auth');
-  };
+  const goToAuth = () => {
+    setCurrentView('auth')
+    window.history.pushState({}, '', '/')
+  }
 
-  const navigateToPublic = () => {
-    setAppState('public');
-  };
-
-  // Loading state
-  if (appState === 'loading') {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading...</p>
         </div>
       </div>
-    );
+    )
   }
 
-  // Setup state
-  if (appState === 'setup') {
+  if (currentView === 'profile') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="max-w-md w-full space-y-6">
-          <div className="text-center">
-            <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-semibold mb-2">Setup Required</h1>
-            <p className="text-muted-foreground">
-              Your Biolink app needs to be configured with Supabase credentials to work properly.
-            </p>
-          </div>
-          
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription className="space-y-2">
-              <div>
-                <strong>To get started:</strong>
-              </div>
-              <ol className="list-decimal list-inside space-y-1 text-sm">
-                <li>Create a Supabase project at <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">supabase.com</a></li>
-                <li>Go to Settings → API in your project dashboard</li>
-                <li>Copy your Project URL and anon/public key</li>
-                <li>Update the <code className="bg-muted px-1 rounded">.env.local</code> file with your credentials</li>
-                <li>Restart the development server</li>
-              </ol>
-            </AlertDescription>
-          </Alert>
-          
-          <div className="text-center">
-            <button 
-              onClick={() => window.location.reload()} 
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-            >
-              Check Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Authentication form
-  if (appState === 'auth') {
-    return (
-      <AuthForm 
-        onAuthSuccess={handleAuthSuccess}
+      <PublicProfile 
+        username={profileUsername} 
+        onGoHome={goToAuth}
       />
-    );
+    )
   }
 
-  // User dashboard
-  if (appState === 'dashboard' && userProfile && accessToken) {
+  if (currentView === 'dashboard' && user) {
     return (
-      <Dashboard
-        accessToken={accessToken}
-        initialProfile={userProfile}
-        onSignOut={handleSignOut}
+      <Dashboard 
+        user={user} 
+        onLogout={handleLogout}
+        onViewProfile={viewProfile}
       />
-    );
+    )
   }
 
-  // Public biolink viewer / landing page
   return (
-    <PublicBiolink 
-      onNavigateToAuth={navigateToAuth}
+    <AuthForm 
+      onLogin={handleLogin}
+      onViewProfile={viewProfile}
     />
-  );
+  )
 }
