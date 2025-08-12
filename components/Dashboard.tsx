@@ -15,7 +15,7 @@ import { Slider } from './ui/slider';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { 
   User, 
   Link, 
