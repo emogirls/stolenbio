@@ -1,21 +1,25 @@
-# BioLink Service
+# stolen.bio - Professional Biolink Platform
 
-A modern biolink platform that allows users to create personalized link hub pages with custom themes and colors.
+A comprehensive biolink platform with unlimited customization options, built with React, TypeScript, and Tailwind CSS.
 
 ## Features
 
-- 🔐 User authentication (sign up/login)
-- 🎨 Customizable themes (background, text, accent colors)
-- 🔗 Link management (add/delete links)
-- 📱 Responsive design
-- 🌐 Public profile pages
-- ⚡ Fast and lightweight
+- 🎨 **150+ Design Styles** - Modern, creative, professional, and minimalist themes
+- ⚡ **Lightning Performance** - Optimized for speed with instant loading
+- 🔒 **Enterprise Security** - Bank-level security with 99.9% uptime guarantee
+- 📊 **Advanced Analytics** - Track clicks, views, and engagement
+- 🎵 **Media Support** - Background videos, images, and music
+- 🌐 **Custom Domains** - Use your own domain name
+- 📱 **Fully Responsive** - Perfect on all devices
+- 🎭 **Avatar Decorations** - Custom badges and effects
+- 🚀 **Real-time Updates** - Instant preview and changes
 
 ## Tech Stack
 
-- **Frontend**: React, TypeScript, Tailwind CSS
-- **Backend**: Supabase (Auth, Database, API)
-- **UI Components**: shadcn/ui
+- **Frontend**: React 18, TypeScript, Vite
+- **Styling**: Tailwind CSS v4, Motion (Framer Motion)
+- **Backend**: Supabase (Auth, Database, Storage)
+- **UI Components**: Radix UI, shadcn/ui
 - **Icons**: Lucide React
 - **Deployment**: Vercel
 
@@ -27,124 +31,129 @@ A modern biolink platform that allows users to create personalized link hub page
 - npm or yarn
 - Supabase account
 
-### Local Development
+### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd biolink-service
-   ```
+1. Clone the repository:
+```bash
+git clone https://github.com/your-username/stolen-bio.git
+cd stolen-bio
+```
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+2. Install dependencies:
+```bash
+npm install
+```
 
-3. **Set up Supabase**
-   - Create a new Supabase project
-   - Get your project URL and API keys
-   - Update the environment variables (see below)
+3. Set up environment variables:
+```bash
+cp .env.example .env
+```
 
-4. **Environment Variables**
-   Copy `.env.example` to `.env.local` and update with your Supabase credentials:
-   ```bash
-   cp .env.example .env.local
-   ```
-   
-   Then edit `.env.local` with your actual values:
-   ```
-   VITE_SUPABASE_URL=https://your-actual-project-id.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-actual-anon-key
-   ```
-   
-   **To get these values:**
-   - Go to your [Supabase Dashboard](https://supabase.com/dashboard)
-   - Select your project
-   - Go to Settings → API
-   - Copy the Project URL and anon/public key
+4. Configure your Supabase settings in `.env`:
+```env
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+SUPABASE_DB_URL=postgresql://postgres:your_password@db.your-project-id.supabase.co:5432/postgres
+```
 
-5. **Start development server**
-   ```bash
-   npm run dev
-   ```
+5. Start the development server:
+```bash
+npm run dev
+```
 
-### Deployment on Vercel
+## Deployment
 
-1. **Fork this repository** to your GitHub account
+### Deploy to Vercel
 
-2. **Create a new Vercel project**
-   - Go to [vercel.com](https://vercel.com)
-   - Import your forked repository
-   - Vercel will automatically detect it as a Vite project
+1. Install Vercel CLI:
+```bash
+npm i -g vercel
+```
 
-3. **Set up Supabase**
-   - Create a Supabase project at [supabase.com](https://supabase.com)
-   - Note down your project URL and API keys
+2. Deploy:
+```bash
+vercel
+```
 
-4. **Configure Environment Variables in Vercel**
-   - Go to your Vercel project settings → Environment Variables
-   - Add the following environment variables (using underscores, not dashes):
-     ```
-     vite_supabase_url=https://your-project-id.supabase.co
-     vite_supabase_anon_key=your-supabase-anon-key
-     supabase_url=https://your-project-id.supabase.co
-     supabase_anon_key=your-supabase-anon-key
-     supabase_service_role_key=your-supabase-service-role-key
-     ```
-   - Note: Vercel environment variable names cannot contain dashes, so we use underscores
+3. Set environment variables in Vercel dashboard:
+   - Go to your project settings
+   - Add the environment variables from your `.env` file
+   - Redeploy if necessary
 
-5. **Deploy**
-   - Vercel will automatically deploy your project
-   - Your biolink service will be available at your Vercel domain
+### Manual Deployment
 
-### Update Frontend Configuration
+1. Build the project:
+```bash
+npm run build
+```
 
-After deployment, update the Supabase configuration in your code:
+2. The build files will be in the `dist` directory
 
-1. Open `/utils/supabase/info.tsx`
-2. Replace the placeholder values with your actual Supabase credentials:
-   ```typescript
-   export const projectId = 'your-actual-project-id'
-   export const publicAnonKey = 'your-actual-anon-key'
-   ```
+## Project Structure
 
-## Usage
+```
+├── components/           # React components
+│   ├── auth/            # Authentication components
+│   ├── ui/              # shadcn/ui components
+│   └── figma/           # Figma-related components
+├── styles/              # Global styles and Tailwind config
+├── utils/               # Utility functions
+├── supabase/            # Supabase configuration
+└── public/              # Static assets
+```
 
-### For Users
+## Available Scripts
 
-1. **Sign Up**: Create an account with email and password
-2. **Choose Username**: Pick a unique username for your biolink URL
-3. **Customize Profile**: Set your display name, description, and theme colors
-4. **Add Links**: Add links to your social media, website, etc.
-5. **Share**: Share your biolink at `/profile/your-username`
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+- `npm run type-check` - Run TypeScript type checking
 
-### For Developers
+## Environment Variables
 
-The codebase is organized as follows:
+| Variable | Description |
+|----------|-------------|
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_ANON_KEY` | Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
+| `SUPABASE_DB_URL` | Supabase database connection string |
 
-- `/App.tsx` - Main application component with routing
-- `/components/AuthForm.tsx` - Authentication interface
-- `/components/Dashboard.tsx` - User dashboard for profile management
-- `/components/PublicProfile.tsx` - Public biolink page display
-- `/supabase/functions/server/` - Backend API endpoints
+## Features Overview
 
-## API Endpoints
+### Free Plan ($0/month)
+- 1 biolink
+- Basic customization
+- 5 social links
+- stolen.bio subdomain
+- Basic themes
+- Community support
 
-- `POST /signup` - Create new user account
-- `GET /profile/:username` - Get public profile (no auth)
-- `GET /my-profile` - Get current user's profile (auth required)
-- `PUT /profile` - Update profile (auth required)
-- `POST /links` - Add new link (auth required)
-- `DELETE /links/:id` - Delete link (auth required)
+### Premium Plan ($9/month)
+- Unlimited biolinks
+- Advanced customization
+- Unlimited social links
+- Custom domain support
+- Premium themes & effects
+- Background media support
+- Advanced analytics
+- Custom badges
+- Avatar decorations
+- Priority support
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-MIT License - see LICENSE file for details
+This project is licensed under the MIT License.
+
+## Support
+
+For support, email support@stolen.bio or join our Discord community.

@@ -1,6 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -42,6 +39,20 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  
+  /* Professional midnight blue and green color scheme */
+  --midnight-primary: #0f172a;
+  --midnight-secondary: #1e293b;
+  --midnight-accent: #334155;
+  --emerald-primary: #10b981;
+  --emerald-secondary: #059669;
+  --emerald-accent: #34d399;
+  --teal-primary: #14b8a6;
+  --teal-secondary: #0d9488;
+  --cyan-primary: #06b6d4;
+  --cyan-secondary: #0891b2;
+  --slate-dark: #1e293b;
+  --slate-darker: #0f172a;
 }
 
 .dark {
@@ -120,6 +131,20 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  
+  /* Professional color utilities */
+  --color-midnight-primary: var(--midnight-primary);
+  --color-midnight-secondary: var(--midnight-secondary);
+  --color-midnight-accent: var(--midnight-accent);
+  --color-emerald-primary: var(--emerald-primary);
+  --color-emerald-secondary: var(--emerald-secondary);
+  --color-emerald-accent: var(--emerald-accent);
+  --color-teal-primary: var(--teal-primary);
+  --color-teal-secondary: var(--teal-secondary);
+  --color-cyan-primary: var(--cyan-primary);
+  --color-cyan-secondary: var(--cyan-secondary);
+  --color-slate-dark: var(--slate-dark);
+  --color-slate-darker: var(--slate-darker);
 }
 
 @layer base {
@@ -129,7 +154,82 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
   }
+  
+  /* Professional scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.3);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #10b981, #14b8a6);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #059669, #0d9488);
+  }
+}
+
+/* Professional animations */
+@keyframes subtle-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(16, 185, 129, 0.3), 0 0 10px rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.4), 0 0 15px rgba(16, 185, 129, 0.3);
+  }
+}
+
+@keyframes fade-slide-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+/* Utility classes for professional effects */
+.professional-glow {
+  animation: subtle-glow 3s ease-in-out infinite;
+}
+
+.fade-slide-up {
+  animation: fade-slide-up 0.6s ease-out;
+}
+
+.pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+.midnight-gradient-bg {
+  background: linear-gradient(135deg, var(--midnight-primary) 0%, var(--midnight-secondary) 50%, var(--midnight-accent) 100%);
+}
+
+.professional-glass-card {
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 /**
