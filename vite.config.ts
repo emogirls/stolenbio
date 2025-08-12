@@ -28,7 +28,7 @@ export default defineConfig(async () => {
           manualChunks: {
             vendor: ['react', 'react-dom'],
             supabase: ['@supabase/supabase-js'],
-            ui: ['lucide-react', 'motion']
+            ui: ['lucide-react', 'framer-motion']
           }
         }
       }
