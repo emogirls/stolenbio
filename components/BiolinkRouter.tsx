@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BiolinkPage } from './BiolinkPage';
 import { Button } from './ui/button';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { Loader2, Link, ArrowLeft, Sparkles } from 'lucide-react';
 
 interface BiolinkRouterProps {
