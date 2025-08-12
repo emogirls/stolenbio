@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, ArrowLeft, Sparkles, Link } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 
 interface AuthFormProps {
   onAuthSuccess: (user: any, token: string) => void;
