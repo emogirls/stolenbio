@@ -1,412 +1,446 @@
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Alert, AlertDescription } from '../ui/alert';
-import { Loader2, ArrowLeft, Sparkles, Link } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { supabase, auth, db } from '../../utils/supabase/client';
+import { 
+  ArrowLeft, 
+  Mail, 
+  Lock, 
+  User, 
+  Eye, 
+  EyeOff, 
+  AlertCircle, 
+  CheckCircle,
+  KeyRound
+} from 'lucide-react';
 
 interface AuthFormProps {
-  onAuthSuccess: (user: any, token: string) => void;
+  onAuthSuccess: (user: any, accessToken: string) => void;
   onBack: () => void;
 }
 
-export function AuthForm({ onAuthSuccess, onBack }: AuthFormProps) {
-  const [isLoading, setIsLoading] = useState(false);
+export default function AuthForm({ onAuthSuccess, onBack }: AuthFormProps) {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [name, setName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('login');
+  const [success, setSuccess] = useState('');
 
-  // Login form state
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
+  // Check for validated invite code on mount
+  useState(() => {
+    const validatedCode = localStorage.getItem('validatedInviteCode');
+    if (validatedCode) {
+      setInviteCode(validatedCode);
+    }
+  });
 
-  // Signup form state
-  const [signupEmail, setSignupEmail] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
-  const [signupName, setSignupName] = useState('');
-  const [signupUsername, setSignupUsername] = useState('');
+  const validateForm = () => {
+    if (!email || !password) {
+      setError('Email and password are required');
+      return false;
+    }
+    
+    if (!isLogin) {
+      if (!inviteCode || inviteCode.length < 6) {
+        setError('Valid access code required');
+        return false;
+      }
+      if (!username || !name) {
+        setError('Username and name are required');
+        return false;
+      }
+    }
+    
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return false;
+    }
+    if (!isLogin && username.length < 3) {
+      setError('Username must be at least 3 characters');
+      return false;
+    }
+    if (!isLogin && !/^[a-zA-Z0-9_-]+$/.test(username)) {
+      setError('Username can only contain letters, numbers, underscores, and hyphens');
+      return false;
+    }
+    return true;
+  };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError('');
+    setSuccess('');
+
+    if (!validateForm()) return;
+
+    setLoading(true);
 
     try {
-      const { createClient } = await import('@supabase/supabase-js');
-      
-      // Get environment variables
-      let supabaseUrl = '';
-      let supabaseAnonKey = '';
-      
-      try {
-        const envInfo = await import('../../utils/supabase/info');
-        supabaseUrl = `https://${envInfo.projectId}.supabase.co`;
-        supabaseAnonKey = envInfo.publicAnonKey;
-      } catch (envError) {
-        supabaseUrl = process.env.SUPABASE_URL || '';
-        supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+      if (isLogin) {
+        // Sign in existing user
+        const { data, error } = await auth.signIn(email, password);
+        
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (data.user && data.session) {
+          setSuccess('Access granted. Loading dashboard...');
+          
+          setTimeout(() => {
+            onAuthSuccess(data.user, data.session.access_token);
+          }, 1500);
+        }
+      } else {
+        // Validate invite code first
+        const { valid, error: inviteError } = await db.validateInviteCode(inviteCode);
+        
+        if (!valid) {
+          throw new Error(inviteError || 'Invalid access code');
+        }
+
+        // Check if username is already taken
+        const { data: existingProfile } = await db.getProfileByUsername(username);
+        if (existingProfile) {
+          throw new Error('Username is already taken');
+        }
+
+        // Sign up new user
+        const { data, error } = await auth.signUp(email, password, {
+          name,
+          username: username.toLowerCase(),
+          invite_code: inviteCode,
+          membership_tier: 'elite'
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (data.user) {
+          // Use the invite code
+          await db.useInviteCode(inviteCode, data.user.id);
+
+          // Create user profile
+          await db.createProfile(data.user.id, {
+            username: username.toLowerCase(),
+            title: name,
+            description: 'Welcome to my exclusive elite biolink ✨',
+            membership_tier: 'elite',
+            steal_coins: 200,
+            elite_features: true,
+            priority_support: true
+          });
+
+          // Create user stats
+          const { error: statsError } = await supabase
+            .from('user_stats')
+            .insert({
+              user_id: data.user.id,
+              total_views: 0,
+              total_clicks: 0,
+              affiliate_referrals: 0,
+              affiliate_earnings: 0,
+              daily_streak: 0
+            });
+
+          if (statsError) {
+            console.warn('Failed to create user stats:', statsError);
+          }
+
+          setSuccess('Elite account created! Please check your email to verify your account.');
+          
+          // Clear validated invite code
+          localStorage.removeItem('validatedInviteCode');
+          
+          // If session exists, proceed to dashboard
+          if (data.session) {
+            setTimeout(() => {
+              onAuthSuccess(data.user, data.session.access_token);
+            }, 2000);
+          }
+        }
       }
-
-      if (!supabaseUrl || !supabaseAnonKey) {
-        setError('Configuration error. Please contact support.');
-        return;
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword,
-      });
-
-      if (error) {
-        setError(error.message);
-        return;
-      }
-
-      if (data.session?.access_token) {
-        onAuthSuccess(data.user, data.session.access_token);
-      }
-    } catch (err) {
-      console.error('Login error:', err);
-      setError('An unexpected error occurred');
+    } catch (err: any) {
+      console.error('Authentication error:', err);
+      setError(err.message || 'Authentication failed');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  const toggleMode = () => {
+    setIsLogin(!isLogin);
     setError('');
-
-    // Basic validation
-    if (!signupEmail || !signupPassword || !signupName || !signupUsername) {
-      setError('All fields are required');
-      setIsLoading(false);
-      return;
-    }
-
-    if (signupUsername.length < 3) {
-      setError('Username must be at least 3 characters');
-      setIsLoading(false);
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9_]+$/.test(signupUsername)) {
-      setError('Username can only contain letters, numbers, and underscores');
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const { projectId, publicAnonKey } = await import('../../utils/supabase/info');
-      
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-dfdc0213/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
-        body: JSON.stringify({
-          email: signupEmail,
-          password: signupPassword,
-          name: signupName,
-          username: signupUsername
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Signup failed');
-        return;
+    setSuccess('');
+    setEmail('');
+    setPassword('');
+    setUsername('');
+    setName('');
+    if (isLogin) {
+      const validatedCode = localStorage.getItem('validatedInviteCode');
+      if (validatedCode) {
+        setInviteCode(validatedCode);
       }
-
-      // After successful signup, automatically log them in
-      const { createClient } = await import('@supabase/supabase-js');
-      
-      // Get environment variables
-      let supabaseUrl = '';
-      let supabaseAnonKey = '';
-      
-      try {
-        const envInfo = await import('../../utils/supabase/info');
-        supabaseUrl = `https://${envInfo.projectId}.supabase.co`;
-        supabaseAnonKey = envInfo.publicAnonKey;
-      } catch (envError) {
-        supabaseUrl = process.env.SUPABASE_URL || '';
-        supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-      const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-        email: signupEmail,
-        password: signupPassword,
-      });
-
-      if (loginError) {
-        setError('Account created but login failed. Please try logging in manually.');
-        setActiveTab('login');
-        return;
-      }
-
-      if (loginData.session?.access_token) {
-        onAuthSuccess(loginData.user, loginData.session.access_token);
-      }
-    } catch (err) {
-      console.error('Signup error:', err);
-      setError('An unexpected error occurred during signup');
-    } finally {
-      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 relative overflow-hidden">
-      {/* Animated background */}
+    <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center p-6">
+      {/* Minimal background */}
       <div className="absolute inset-0">
         <div 
-          className="absolute inset-0 opacity-10"
+          className="absolute inset-0 opacity-3"
           style={{
-            backgroundImage: `radial-gradient(circle at 25px 25px, #10b981 2px, transparent 0)`,
-            backgroundSize: '50px 50px'
+            backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px)`,
+            backgroundSize: '100px 100px'
           }}
         />
-        
-        {[...Array(10)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-1 h-1 bg-emerald-400 rounded-full"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
-            animate={{
-              opacity: [0, 1, 0],
-              scale: [0, 1, 0],
-            }}
-            transition={{
-              duration: 3,
-              repeat: Infinity,
-              delay: Math.random() * 3,
-            }}
-          />
-        ))}
       </div>
 
-      {/* Navigation */}
-      <motion.nav 
-        className="relative z-10 p-6 flex justify-between items-center"
-        initial={{ y: -50, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.8 }}
+      {/* Back Button */}
+      <motion.button
+        onClick={onBack}
+        className="fixed top-6 left-6 z-50 text-slate-500 hover:text-white transition-colors duration-300 text-sm font-mono"
+        whileHover={{ x: -3 }}
+        whileTap={{ scale: 0.95 }}
       >
-        <Button 
-          variant="ghost" 
-          onClick={onBack}
-          className="text-slate-300 hover:text-emerald-400 hover:bg-slate-800/30"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-        
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
-            <Link className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">
-            stolen.bio
-          </span>
-        </div>
-      </motion.nav>
+        <ArrowLeft className="h-4 w-4 mr-2 inline" />
+        Back
+      </motion.button>
 
-      {/* Main content */}
-      <div className="relative z-10 flex items-center justify-center min-h-[calc(100vh-100px)] p-4">
-        <motion.div
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-        >
-          <Card className="w-full max-w-md bg-slate-900/80 backdrop-blur-sm border-emerald-500/30 shadow-2xl">
-            <CardHeader className="text-center space-y-4">
-              <motion.div
-                className="flex justify-center"
-                animate={{ rotate: [0, 5, -5, 0] }}
-                transition={{ duration: 4, repeat: Infinity }}
-              >
-                <Sparkles className="w-12 h-12 text-emerald-400" />
-              </motion.div>
-              
-              <CardTitle className="text-3xl text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">
-                Welcome to stolen.bio
-              </CardTitle>
-              <CardDescription className="text-slate-300 text-lg">
-                Create your professional biolink page
-              </CardDescription>
-            </CardHeader>
+      {/* Main Auth Form */}
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="relative z-10 w-full max-w-sm"
+      >
+        <div className="border border-white/10 bg-black/50 backdrop-blur-sm p-8">
+          
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="text-2xl font-light text-white mb-2 tracking-wider">
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={isLogin ? 'login' : 'signup'}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {isLogin ? 'ACCESS' : 'REGISTER'}
+                </motion.span>
+              </AnimatePresence>
+            </div>
             
-            <CardContent>
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 border border-emerald-500/30">
-                  <TabsTrigger 
-                    value="login" 
-                    className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600"
-                  >
-                    Login
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="signup" 
-                    className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-teal-600"
-                  >
-                    Sign Up
-                  </TabsTrigger>
-                </TabsList>
+            <motion.p 
+              className="text-slate-500 text-sm font-mono"
+              animate={{ opacity: [0.5, 0.8, 0.5] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            >
+              {isLogin ? 'Restricted portal' : 'Invitation required'}
+            </motion.p>
+          </div>
 
-                {error && (
+          <form onSubmit={handleSubmit} className="space-y-5">
+            
+            {!isLogin && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-2"
+              >
+                <Label className="text-slate-400 text-xs font-mono uppercase tracking-wider flex items-center gap-2">
+                  <KeyRound className="h-3 w-3" />
+                  Access Code
+                </Label>
+                <Input
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  placeholder="NEPTUNE_TESTING_PURPOSES"
+                  className="bg-transparent border border-white/20 text-white font-mono text-center text-sm h-10 focus:border-white/40 focus:ring-0"
+                  disabled={loading}
+                />
+                <p className="text-xs text-slate-500 font-mono">
+                  Try: NEPTUNE_TESTING_PURPOSES
+                </p>
+              </motion.div>
+            )}
+
+            {/* Email */}
+            <div className="space-y-2">
+              <Label className="text-slate-400 text-xs font-mono uppercase tracking-wider flex items-center gap-2">
+                <Mail className="h-3 w-3" />
+                Email
+              </Label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="bg-transparent border border-white/20 text-white text-sm h-10 focus:border-white/40 focus:ring-0"
+                disabled={loading}
+              />
+            </div>
+
+            {!isLogin && (
+              <>
+                {/* Username */}
+                <div className="space-y-2">
+                  <Label className="text-slate-400 text-xs font-mono uppercase tracking-wider flex items-center gap-2">
+                    <User className="h-3 w-3" />
+                    Username
+                  </Label>
+                  <Input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                    placeholder="username"
+                    className="bg-transparent border border-white/20 text-white text-sm h-10 focus:border-white/40 focus:ring-0"
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-slate-500 font-mono">
+                    stolen.bio/{username || 'username'}
+                  </p>
+                </div>
+
+                {/* Name */}
+                <div className="space-y-2">
+                  <Label className="text-slate-400 text-xs font-mono uppercase tracking-wider">
+                    Display Name
+                  </Label>
+                  <Input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your Name"
+                    className="bg-transparent border border-white/20 text-white text-sm h-10 focus:border-white/40 focus:ring-0"
+                    disabled={loading}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Password */}
+            <div className="space-y-2">
+              <Label className="text-slate-400 text-xs font-mono uppercase tracking-wider flex items-center gap-2">
+                <Lock className="h-3 w-3" />
+                Password
+              </Label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="bg-transparent border border-white/20 text-white text-sm h-10 pr-10 focus:border-white/40 focus:ring-0"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Error Message */}
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="border border-red-500/30 bg-red-500/10 p-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-3 w-3 text-red-400" />
+                    <p className="text-red-400 text-xs font-mono">{error}</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Success Message */}
+            <AnimatePresence>
+              {success && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="border border-green-500/30 bg-green-500/10 p-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 text-green-400" />
+                    <p className="text-green-400 text-xs font-mono">{success}</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Submit Button */}
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-transparent border border-white/20 text-white hover:bg-white/5 hover:border-white/40 disabled:opacity-30 h-10 text-xs font-mono tracking-wider"
+            >
+              <AnimatePresence mode="wait">
+                {loading ? (
                   <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-4"
+                    key="loading"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center gap-2"
                   >
-                    <Alert className="bg-red-900/20 border-red-500/30 backdrop-blur-sm">
-                      <AlertDescription className="text-red-300">{error}</AlertDescription>
-                    </Alert>
+                    <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                    <span>{isLogin ? 'AUTHENTICATING' : 'CREATING_ACCOUNT'}</span>
                   </motion.div>
+                ) : (
+                  <motion.span
+                    key="submit"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    {isLogin ? 'ENTER' : 'REQUEST_ACCESS'}
+                  </motion.span>
                 )}
+              </AnimatePresence>
+            </Button>
+          </form>
 
-                <TabsContent value="login" className="space-y-4">
-                  <motion.form 
-                    onSubmit={handleLogin} 
-                    className="space-y-4"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.1 }}
-                  >
-                    <div className="space-y-2">
-                      <Label htmlFor="login-email" className="text-slate-200">
-                        Email
-                      </Label>
-                      <Input
-                        id="login-email"
-                        type="email"
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        className="bg-slate-800/50 border-emerald-500/30 text-white placeholder-slate-400 focus:border-emerald-400 focus:ring-emerald-400/20"
-                        placeholder="your@email.com"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="login-password" className="text-slate-200">
-                        Password
-                      </Label>
-                      <Input
-                        id="login-password"
-                        type="password"
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        className="bg-slate-800/50 border-emerald-500/30 text-white placeholder-slate-400 focus:border-emerald-400 focus:ring-emerald-400/20"
-                        placeholder="••••••••"
-                        required
-                      />
-                    </div>
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white border-0" 
-                      disabled={isLoading}
-                    >
-                      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Login
-                    </Button>
-                  </motion.form>
-                </TabsContent>
-
-                <TabsContent value="signup" className="space-y-4">
-                  <motion.form 
-                    onSubmit={handleSignup} 
-                    className="space-y-4"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.1 }}
-                  >
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-name" className="text-slate-200">
-                        Full Name
-                      </Label>
-                      <Input
-                        id="signup-name"
-                        type="text"
-                        value={signupName}
-                        onChange={(e) => setSignupName(e.target.value)}
-                        className="bg-slate-800/50 border-emerald-500/30 text-white placeholder-slate-400 focus:border-emerald-400 focus:ring-emerald-400/20"
-                        placeholder="Your Name"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-username" className="text-slate-200">
-                        Username
-                      </Label>
-                      <Input
-                        id="signup-username"
-                        type="text"
-                        value={signupUsername}
-                        onChange={(e) => setSignupUsername(e.target.value.toLowerCase())}
-                        className="bg-slate-800/50 border-emerald-500/30 text-white placeholder-slate-400 focus:border-emerald-400 focus:ring-emerald-400/20"
-                        placeholder="your-username"
-                        required
-                      />
-                      <p className="text-xs text-slate-400">
-                        Your biolink: stolen.bio/{signupUsername || 'username'}
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-email" className="text-slate-200">
-                        Email
-                      </Label>
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        value={signupEmail}
-                        onChange={(e) => setSignupEmail(e.target.value)}
-                        className="bg-slate-800/50 border-emerald-500/30 text-white placeholder-slate-400 focus:border-emerald-400 focus:ring-emerald-400/20"
-                        placeholder="your@email.com"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-password" className="text-slate-200">
-                        Password
-                      </Label>
-                      <Input
-                        id="signup-password"
-                        type="password"
-                        value={signupPassword}
-                        onChange={(e) => setSignupPassword(e.target.value)}
-                        className="bg-slate-800/50 border-emerald-500/30 text-white placeholder-slate-400 focus:border-emerald-400 focus:ring-emerald-400/20"
-                        placeholder="••••••••"
-                        required
-                      />
-                    </div>
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white border-0" 
-                      disabled={isLoading}
-                    >
-                      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Create Account
-                    </Button>
-                  </motion.form>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
+          {/* Mode Toggle */}
+          <div className="mt-8 pt-6 border-t border-white/10">
+            <div className="text-center">
+              <p className="text-slate-500 text-xs font-mono mb-3">
+                {isLogin ? "Need access?" : "Already registered?"}
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={toggleMode}
+                disabled={loading}
+                className="text-white hover:bg-white/5 text-xs font-mono tracking-wider h-8"
+              >
+                {isLogin ? 'REQUEST_INVITE' : 'SIGN_IN'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }

@@ -6,10 +6,6 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/.well-known/(.*)",
-      "destination": "/.well-known/$1"
-    },
-    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
@@ -32,5 +28,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "app/**": {
+      "runtime": "nodejs22.x"
+    }
+  }
 }

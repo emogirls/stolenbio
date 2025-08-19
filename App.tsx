@@ -1,364 +1,710 @@
-import { useState, useEffect } from 'react';
-import { AuthForm } from './components/auth/AuthForm';
-import { BiolinkPage } from './components/BiolinkPage';
-import { Dashboard } from './components/Dashboard';
-import { BiolinkRouter } from './components/BiolinkRouter';
-import { MainPage } from './components/MainPage';
+import { Suspense, lazy, useState, useEffect, startTransition, useCallback } from 'react';
 import { ProfessionalLoader } from './components/ProfessionalLoader';
-import { Instagram, Twitter, Youtube, Globe, Music, Github } from 'lucide-react';
+import { SupabaseSetup } from './components/SupabaseSetup';
+import { SupabaseVerification } from './components/SupabaseVerification';
+import { supabase, auth, db, isSupabaseConfigured } from './utils/supabase/client';
 
-type ViewMode = 'loading' | 'main' | 'auth' | 'dashboard' | 'preview' | 'biolink';
+// Fixed lazy imports - use correct syntax for default exports
+const AuthForm = lazy(() => import('./components/auth/AuthForm'));
+const BiolinkPage = lazy(() => import('./components/BiolinkPage'));
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const InviteOnlyLanding = lazy(() => import('./components/InviteOnlyLanding'));
+
+type ViewMode = 'loading' | 'invite-gate' | 'auth' | 'dashboard' | 'preview';
+
+// Exclusive platform notices with magenta theme
+const SupabaseSetupNotice = ({ onSetupClick, onDismiss, onVerify }: { 
+  onSetupClick: () => void; 
+  onDismiss: () => void; 
+  onVerify: () => void;
+}) => (
+  <div className="fixed top-4 right-4 z-40 max-w-sm">
+    <div className="bg-gradient-to-br from-fuchsia-500/10 to-purple-500/10 border border-fuchsia-500/30 text-fuchsia-400 p-4 rounded text-sm backdrop-blur-sm">
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-medium">🚀 Elite Database Connected</span>
+        <button 
+          onClick={onDismiss}
+          className="text-fuchsia-400 hover:text-fuchsia-300"
+        >
+          ×
+        </button>
+      </div>
+      <div className="space-y-2 text-fuchsia-400/80">
+        <p>Exclusive platform operational.</p>
+        <p>Elite member data secured.</p>
+        <div className="flex gap-2 mt-3">
+          <button 
+            onClick={onVerify}
+            className="px-3 py-1 bg-fuchsia-500/20 hover:bg-fuchsia-500/30 border border-fuchsia-500/30 rounded text-fuchsia-400 transition-colors text-xs"
+          >
+            Test Elite Access
+          </button>
+          <button 
+            onClick={onDismiss}
+            className="px-3 py-1 bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/30 rounded text-fuchsia-400 transition-colors text-xs"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const DemoModeNotice = ({ onSetupClick, onDismiss }: { onSetupClick: () => void; onDismiss: () => void }) => (
+  <div className="fixed top-4 right-4 z-40 max-w-sm">
+    <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 p-4 rounded text-sm">
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-medium">⚠️ Elite Demo Mode</span>
+        <button 
+          onClick={onDismiss}
+          className="text-yellow-400 hover:text-yellow-300"
+        >
+          ×
+        </button>
+      </div>
+      <div className="space-y-2 text-yellow-400/80">
+        <p>Simulating exclusive platform.</p>
+        <p>Connect database for full elite access.</p>
+        <div className="flex gap-2 mt-3">
+          <button 
+            onClick={onSetupClick}
+            className="px-3 py-1 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/30 rounded text-yellow-400 transition-colors text-xs"
+          >
+            Elite Setup
+          </button>
+          <button 
+            onClick={onDismiss}
+            className="px-3 py-1 bg-transparent hover:bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400 transition-colors text-xs"
+          >
+            Continue Demo
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewMode>('loading');
   const [user, setUser] = useState<any>(null);
-  const [accessToken, setAccessToken] = useState<string>('');
-  const [username, setUsername] = useState<string>('');
+  const [session, setSession] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [showSetupNotice, setShowSetupNotice] = useState(false);
+  const [showSupabaseSetup, setShowSupabaseSetup] = useState(false);
+  const [showVerification, setShowVerification] = useState(false);
   
-  // Comprehensive biolink settings
+  // Elite biolink settings for exclusive members with magenta theme
   const [settings, setSettings] = useState({
-    // Bio-Link Menu
-    customLink: 'username',
-    title: 'Username',
-    description: 'Welcome to my professional biolink! 🚀',
+    // Exclusive Elite Bio-Link Features
+    customLink: 'elite-member',
+    title: 'Exclusive Elite Member',
+    description: 'Welcome to the inner circle ✨',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
     backgroundMedia: null,
     musicUrl: '',
     musicEnabled: false,
     address: '',
     favicon: '',
-    enterText: 'Enter My Space',
-    overlayEnabled: false,
+    enterText: 'Enter Elite Space',
+    overlayEnabled: true,
     fontFamily: 'Inter, sans-serif',
     customCursor: '',
-    titleTabText: 'stolen.bio',
+    titleTabText: 'Elite | stolen.bio',
     showBadges: true,
-    badges: [],
-
-    // Bio-Socials
+    badges: ['elite-member', 'founding-member'],
     socialLinks: [],
-
-    // Misc Settings
-    accentColor: '#10b981',
+    customLinks: [],
+    layoutType: 'square',
+    accentColor: '#d946ef',
     textColor: '#ffffff',
-    backgroundColor: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
+    backgroundColor: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #0f172a 100%)',
     squareColor: '#1e293b',
-    iconColor: '#10b981',
+    iconColor: '#d946ef',
     discordRPC: false,
     discordInvite: '',
-    backgroundType: 'normal',
-    descriptionEffect: 'normal',
-    borderGlow: false,
+    backgroundType: 'gradient',
+    descriptionEffect: 'glow',
+    borderGlow: true,
     glowType: 'avatar',
-    titleType: 'normal',
-    particlesEnabled: false,
+    titleType: 'gradient',
+    particlesEnabled: true,
     particlesImage: '',
-    particlesColor: '#10b981',
-    specialEffects: 'none',
+    particlesColor: '#d946ef',
+    specialEffects: 'elite',
     viewCounterEnabled: true,
-    viewCounterPosition: 'top-right',
-    mouseTrails: 'none',
-
-    // Premium Settings
+    viewCounterPosition: 'bottom-left',
+    mouseTrails: 'elite',
+    
+    // Exclusive Elite Settings
     aliases: '',
-    customBadge: null,
-    avatarDecoration: 'none'
+    customBadge: 'Founding Elite',
+    avatarDecoration: 'glow',
+    membershipTier: 'elite',
+    
+    // Elite Gamification & Exclusivity
+    stealCoinsEnabled: true,
+    affiliateCode: '',
+    displayRank: true,
+    milestoneNotifications: true,
+    eliteFeatures: true,
+    prioritySupport: true,
+    exclusiveAccess: true,
+    invitePrivileges: true
   });
 
-  // Reserved routes that should not be treated as usernames
-  const reservedRoutes = [
-    'auth', 'login', 'signup', 'dashboard', 'admin', 'api', 
-    'features', 'pricing', 'about', 'contact', 'help', 'support',
-    'terms', 'privacy', 'blog', 'docs', 'status'
+  // Exclusive platform routes - all protected
+  const protectedRoutes = [
+    'dashboard', 'preview', 'elite', 'admin', 'settings', 
+    'leaderboard', 'exclusive', 'members', 'invite-manager'
   ];
 
-  // Check for existing session on mount
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const path = window.location.pathname;
-        
-        // Handle root path
-        if (path === '/') {
-          await handleRootRoute();
-          return;
-        }
-
-        // Handle specific routes
-        const pathSegment = path.substring(1); // Remove leading slash
-        
-        // Check if it's a reserved route
-        if (reservedRoutes.includes(pathSegment)) {
-          // For now, redirect reserved routes to main page
-          // Later you can add specific handlers for each route
-          setCurrentView('main');
-          return;
-        }
-
-        // Check if it looks like a username (alphanumeric, underscore, hyphen, 3-30 chars)
-        if (/^[a-zA-Z0-9_-]{3,30}$/.test(pathSegment)) {
-          // Treat as username biolink
-          setUsername(pathSegment);
-          setCurrentView('biolink');
-          return;
-        }
-
-        // Invalid path format, redirect to main
-        setCurrentView('main');
-
-      } catch (error) {
-        console.error('Routing error:', error);
-        setCurrentView('main');
+  const loadUserProfile = useCallback(async (userId: string) => {
+    try {
+      const { data: profileData, error } = await db.getProfile(userId);
+      
+      if (error) {
+        console.error('Error loading elite profile:', error);
+        return;
       }
-    };
-
-    const handleRootRoute = async () => {
-      try {
-        const { createClient } = await import('@supabase/supabase-js');
+      
+      if (profileData) {
+        setProfile(profileData);
         
-        // Get environment variables from our info module
-        let supabaseUrl = '';
-        let supabaseAnonKey = '';
-        
-        try {
-          const envInfo = await import('./utils/supabase/info');
-          supabaseUrl = `https://${envInfo.projectId}.supabase.co`;
-          supabaseAnonKey = envInfo.publicAnonKey;
-        } catch (envError) {
-          // Fallback to process.env if available
-          supabaseUrl = process.env.SUPABASE_URL || '';
-          supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
-        }
-
-        if (!supabaseUrl || !supabaseAnonKey) {
-          console.warn('Supabase environment variables not found');
-          setTimeout(() => setCurrentView('main'), 100);
-          return;
-        }
-
-        const supabase = createClient(supabaseUrl, supabaseAnonKey);
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.access_token) {
-          setUser(session.user);
-          setAccessToken(session.access_token);
-          
-          // Fetch user profile and settings
-          await fetchUserProfile(session.access_token);
-          setCurrentView('dashboard');
-        } else {
-          // Show main page after loading
-          setTimeout(() => setCurrentView('main'), 100);
-        }
-      } catch (error) {
-        console.error('Session check error:', error);
-        setTimeout(() => setCurrentView('main'), 100);
+        // Update settings with elite member data
+        setSettings(prevSettings => ({
+          ...prevSettings,
+          customLink: profileData.username,
+          title: profileData.title || 'Elite Member',
+          description: profileData.description || 'Exclusive elite member of stolen.bio',
+          avatar: profileData.avatar || prevSettings.avatar,
+          backgroundMedia: profileData.background_media,
+          musicUrl: profileData.music_url,
+          address: profileData.address,
+          favicon: profileData.favicon,
+          enterText: profileData.enter_text || 'Enter Elite Space',
+          titleTabText: profileData.title_tab_text || 'Elite | stolen.bio',
+          showBadges: profileData.show_badges ?? true,
+          badges: profileData.badges || ['elite-member'],
+          socialLinks: profileData.social_links || [],
+          customLinks: profileData.custom_links || [],
+          layoutType: profileData.layout_type || 'square',
+          accentColor: profileData.accent_color || '#d946ef',
+          textColor: profileData.text_color || '#ffffff',
+          backgroundColor: profileData.background_color || prevSettings.backgroundColor,
+          iconColor: profileData.icon_color || '#d946ef',
+          backgroundType: profileData.background_type || 'gradient',
+          descriptionEffect: profileData.description_effect || 'glow',
+          borderGlow: profileData.border_glow ?? true,
+          glowType: profileData.glow_type || 'avatar',
+          titleType: profileData.title_type || 'gradient',
+          particlesEnabled: profileData.particles_enabled ?? true,
+          particlesImage: profileData.particles_image || '',
+          particlesColor: profileData.particles_color || '#d946ef',
+          specialEffects: profileData.special_effects || 'elite',
+          viewCounterEnabled: profileData.view_counter_enabled ?? true,
+          viewCounterPosition: profileData.view_counter_position || 'bottom-left',
+          mouseTrails: profileData.mouse_trails || 'elite',
+          aliases: profileData.aliases || '',
+          customBadge: profileData.custom_badge || 'Elite',
+          avatarDecoration: profileData.avatar_decoration || 'glow',
+          membershipTier: profileData.membership_tier || 'elite',
+          affiliateCode: profileData.affiliate_code || '',
+          displayRank: profileData.display_rank ?? true,
+          milestoneNotifications: profileData.milestone_notifications ?? true,
+          eliteFeatures: profileData.elite_features ?? true,
+          prioritySupport: profileData.priority_support ?? true,
+          exclusiveAccess: true,
+          invitePrivileges: profileData.membership_tier === 'elite' || profileData.membership_tier === 'founder'
+        }));
       }
-    };
-
-    checkSession();
+    } catch (error) {
+      console.error('Error loading elite member profile:', error);
+    }
   }, []);
 
-  const fetchUserProfile = async (token: string) => {
+  const handleRouting = useCallback(async () => {
     try {
-      const { projectId, publicAnonKey } = await import('./utils/supabase/info');
+      const path = window.location.pathname;
+      const urlParams = new URLSearchParams(window.location.search);
+      const referralCode = urlParams.get('ref');
+      const inviteCode = urlParams.get('invite');
       
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-dfdc0213/profile`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      // Store referral/invite codes for exclusive access
+      if (referralCode) {
+        localStorage.setItem('referralCode', referralCode);
+      }
+      if (inviteCode) {
+        localStorage.setItem('validatedInviteCode', inviteCode);
+      }
+      
+      // Handle root path - show invite gate or dashboard
+      if (path === '/') {
+        if (session?.user) {
+          startTransition(() => {
+            setCurrentView('dashboard');
+          });
+        } else {
+          startTransition(() => {
+            setCurrentView('invite-gate');
+          });
+        }
+        return;
+      }
+
+      // Handle authentication routes
+      const pathSegment = path.substring(1);
+      
+      if (pathSegment === 'auth' || pathSegment === 'login' || pathSegment === 'join') {
+        startTransition(() => {
+          setCurrentView('auth');
+        });
+        return;
+      }
+      
+      // Handle protected routes - require authentication
+      if (protectedRoutes.includes(pathSegment)) {
+        if (session?.user) {
+          if (pathSegment === 'dashboard') {
+            startTransition(() => {
+              setCurrentView('dashboard');
+            });
+          } else if (pathSegment === 'preview') {
+            startTransition(() => {
+              setCurrentView('preview');
+            });
+          } else {
+            // Other protected routes go to dashboard for now
+            startTransition(() => {
+              setCurrentView('dashboard');
+            });
+          }
+        } else {
+          // Redirect to auth for protected routes
+          startTransition(() => {
+            setCurrentView('auth');
+          });
+          window.history.pushState({}, '', '/auth');
+        }
+        return;
+      }
+
+      // All other routes redirect to invite gate (exclusive access only)
+      startTransition(() => {
+        setCurrentView('invite-gate');
+      });
+      window.history.pushState({}, '', '/');
+
+    } catch (error) {
+      console.error('Elite routing error:', error);
+      startTransition(() => {
+        setCurrentView('invite-gate');
+      });
+    }
+  }, [session, protectedRoutes]);
+
+  // Check Supabase configuration on mount
+  useEffect(() => {
+    console.log('🔧 Elite Database configured:', isSupabaseConfigured);
+    
+    if (!isSupabaseConfigured) {
+      setShowSetupNotice(true);
+      console.log('⚠️  Elite database not configured - using demo mode');
+    } else {
+      console.log('✅ Elite database configured - exclusive access ready');
+      setShowSetupNotice(true);
+    }
+  }, []);
+
+  // Initialize Supabase auth listener for elite members
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        const { session: initialSession } = await auth.getSession();
+        
+        if (initialSession?.user) {
+          setSession(initialSession);
+          setUser(initialSession.user);
+          if (isSupabaseConfigured) {
+            await loadUserProfile(initialSession.user.id);
+          }
+          console.log('🎭 Elite member session restored');
+        }
+      } catch (error) {
+        console.error('Failed to restore elite session:', error);
+      }
+      
+      // Complete loading after session check
+      setTimeout(() => {
+        if (currentView === 'loading') {
+          handleRouting();
+        }
+      }, 1000);
+    };
+
+    initializeAuth();
+
+    // Set up auth state listener for elite platform
+    if (isSupabaseConfigured) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('🎭 Elite auth state change:', event, session?.user?.email);
+        
+        if (event === 'SIGNED_IN' && session?.user) {
+          setSession(session);
+          setUser(session.user);
+          await loadUserProfile(session.user.id);
+          
+          startTransition(() => {
+            setCurrentView('dashboard');
+          });
+          window.history.pushState({}, '', '/dashboard');
+          console.log('🎉 Elite member signed in');
+        } else if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          
+          startTransition(() => {
+            setCurrentView('invite-gate');
+          });
+          window.history.pushState({}, '', '/');
+          console.log('👋 Elite member signed out');
         }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.settings) {
-          setSettings(data.settings);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
+      return () => subscription.unsubscribe();
     }
-  };
+  }, [currentView, handleRouting, loadUserProfile]);
 
   const handleLoaderComplete = () => {
-    setCurrentView('main');
+    handleRouting();
   };
 
-  const handleGetStarted = () => {
-    setCurrentView('auth');
-    // Update URL without page reload
+  const handleRequestInvite = () => {
+    startTransition(() => {
+      setCurrentView('auth');
+    });
     window.history.pushState({}, '', '/auth');
   };
 
-  const handleBackToMain = () => {
-    setCurrentView('main');
-    // Update URL without page reload
+  const handleBackToGate = () => {
+    startTransition(() => {
+      setCurrentView('invite-gate');
+    });
     window.history.pushState({}, '', '/');
   };
 
-  const handleAuthSuccess = async (userData: any, token: string) => {
-    setUser(userData);
-    setAccessToken(token);
+  const handleAuthSuccess = async (userData: any, accessToken: string) => {
+    console.log('🎉 Elite member authentication successful');
     
-    // Fetch user settings
-    await fetchUserProfile(token);
-    setCurrentView('dashboard');
-    // Update URL without page reload
+    setUser(userData);
+    setSession({ user: userData, access_token: accessToken });
+    
+    // Load elite profile if Supabase is configured
+    if (isSupabaseConfigured) {
+      const { session: currentSession } = await auth.getSession();
+      if (currentSession) {
+        setSession(currentSession);
+        setUser(currentSession.user);
+        await loadUserProfile(currentSession.user.id);
+      }
+    }
+    
+    // Navigate to elite dashboard
+    startTransition(() => {
+      setCurrentView('dashboard');
+    });
     window.history.pushState({}, '', '/dashboard');
   };
 
   const handleLogout = async () => {
     try {
-      const { createClient } = await import('@supabase/supabase-js');
+      console.log('👋 Elite member logging out...');
       
-      // Get environment variables
-      let supabaseUrl = '';
-      let supabaseAnonKey = '';
-      
-      try {
-        const envInfo = await import('./utils/supabase/info');
-        supabaseUrl = `https://${envInfo.projectId}.supabase.co`;
-        supabaseAnonKey = envInfo.publicAnonKey;
-      } catch (envError) {
-        supabaseUrl = process.env.SUPABASE_URL || '';
-        supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+      const { error } = await auth.signOut();
+      if (error) {
+        console.error('Elite logout error:', error);
       }
-
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-      await supabase.auth.signOut();
-      setUser(null);
-      setAccessToken('');
-      setCurrentView('main');
       
-      // Update URL and redirect to main
+      // Clear elite session data
+      localStorage.removeItem('referralCode');
+      localStorage.removeItem('validatedInviteCode');
+      
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      
+      startTransition(() => {
+        setCurrentView('invite-gate');
+      });
       window.history.pushState({}, '', '/');
       
-      // Reset to default professional theme settings
-      setSettings({
-        // Bio-Link Menu
-        customLink: 'username',
-        title: 'Username',
-        description: 'Welcome to my professional biolink! 🚀',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-        backgroundMedia: null,
-        musicUrl: '',
-        musicEnabled: false,
-        address: '',
-        favicon: '',
-        enterText: 'Enter My Space',
-        overlayEnabled: false,
-        fontFamily: 'Inter, sans-serif',
-        customCursor: '',
-        titleTabText: 'stolen.bio',
-        showBadges: true,
-        badges: [],
-
-        // Bio-Socials
-        socialLinks: [],
-
-        // Misc Settings
-        accentColor: '#10b981',
-        textColor: '#ffffff',
-        backgroundColor: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
-        squareColor: '#1e293b',
-        iconColor: '#10b981',
-        discordRPC: false,
-        discordInvite: '',
-        backgroundType: 'normal',
-        descriptionEffect: 'normal',
-        borderGlow: false,
-        glowType: 'avatar',
-        titleType: 'normal',
-        particlesEnabled: false,
-        particlesImage: '',
-        particlesColor: '#10b981',
-        specialEffects: 'none',
-        viewCounterEnabled: true,
-        viewCounterPosition: 'top-right',
-        mouseTrails: 'none',
-
-        // Premium Settings
-        aliases: '',
-        customBadge: null,
-        avatarDecoration: 'none'
-      });
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Elite logout error:', error);
+      // Force logout for elite platform
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      startTransition(() => {
+        setCurrentView('invite-gate');
+      });
+      window.history.pushState({}, '', '/');
     }
   };
 
-  const handleSettingsChange = (newSettings: typeof settings) => {
+  const handleSettingsChange = async (newSettings: typeof settings) => {
     setSettings(newSettings);
+    
+    // Auto-save elite member settings
+    if (session?.user && isSupabaseConfigured) {
+      try {
+        console.log('💾 Saving elite member settings...');
+        
+        const profileUpdates = {
+          title: newSettings.title,
+          description: newSettings.description,
+          avatar: newSettings.avatar,
+          background_media: newSettings.backgroundMedia,
+          music_url: newSettings.musicUrl,
+          address: newSettings.address,
+          favicon: newSettings.favicon,
+          enter_text: newSettings.enterText,
+          title_tab_text: newSettings.titleTabText,
+          show_badges: newSettings.showBadges,
+          badges: newSettings.badges,
+          social_links: newSettings.socialLinks,
+          custom_links: newSettings.customLinks,
+          layout_type: newSettings.layoutType,
+          accent_color: newSettings.accentColor,
+          text_color: newSettings.textColor,
+          background_color: newSettings.backgroundColor,
+          icon_color: newSettings.iconColor,
+          background_type: newSettings.backgroundType,
+          description_effect: newSettings.descriptionEffect,
+          border_glow: newSettings.borderGlow,
+          glow_type: newSettings.glowType,
+          title_type: newSettings.titleType,
+          particles_enabled: newSettings.particlesEnabled,
+          particles_image: newSettings.particlesImage,
+          particles_color: newSettings.particlesColor,
+          special_effects: newSettings.specialEffects,
+          view_counter_enabled: newSettings.viewCounterEnabled,
+          view_counter_position: newSettings.viewCounterPosition,
+          mouse_trails: newSettings.mouseTrails,
+          aliases: newSettings.aliases,
+          custom_badge: newSettings.customBadge,
+          avatar_decoration: newSettings.avatarDecoration,
+          affiliate_code: newSettings.affiliateCode,
+          display_rank: newSettings.displayRank,
+          milestone_notifications: newSettings.milestoneNotifications,
+          elite_features: newSettings.eliteFeatures,
+          priority_support: newSettings.prioritySupport
+        };
+        
+        const { error } = await db.updateProfile(session.user.id, profileUpdates);
+        
+        if (error) {
+          console.error('Failed to save elite settings:', error);
+        } else {
+          console.log('✅ Elite settings saved successfully');
+        }
+      } catch (error) {
+        console.error('❌ Error saving elite settings:', error);
+      }
+    } else if (!isSupabaseConfigured) {
+      console.log('💾 Elite settings updated (demo mode)');
+    }
   };
 
   const handlePreview = () => {
-    setCurrentView('preview');
+    startTransition(() => {
+      setCurrentView('preview');
+    });
+    window.history.pushState({}, '', '/preview');
   };
 
   const handleBackToDashboard = () => {
-    setCurrentView('dashboard');
+    startTransition(() => {
+      setCurrentView('dashboard');
+    });
+    window.history.pushState({}, '', '/dashboard');
   };
 
-  // Handle browser back/forward buttons
+  // Handle browser navigation
   useEffect(() => {
     const handlePopState = () => {
-      // Re-run the routing logic when user uses browser navigation
-      window.location.reload();
+      handleRouting();
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [handleRouting]);
 
-  // Professional loading animation
+  // Render notice based on Supabase configuration
+  const renderNotice = () => {
+    if (!showSetupNotice) return null;
+    
+    if (isSupabaseConfigured) {
+      return (
+        <SupabaseSetupNotice 
+          onSetupClick={() => setShowSupabaseSetup(true)}
+          onDismiss={() => setShowSetupNotice(false)}
+          onVerify={() => setShowVerification(true)}
+        />
+      );
+    } else {
+      return (
+        <DemoModeNotice 
+          onSetupClick={() => setShowSupabaseSetup(true)}
+          onDismiss={() => setShowSetupNotice(false)}
+        />
+      );
+    }
+  };
+
+  // Loading screen with elite theme
   if (currentView === 'loading') {
-    return <ProfessionalLoader onComplete={handleLoaderComplete} />;
-  }
-
-  // Biolink view for public pages
-  if (currentView === 'biolink') {
-    return <BiolinkRouter username={username} />;
-  }
-
-  // Main landing page
-  if (currentView === 'main') {
-    return <MainPage onGetStarted={handleGetStarted} />;
-  }
-
-  // Authentication view
-  if (currentView === 'auth') {
-    return <AuthForm onAuthSuccess={handleAuthSuccess} onBack={handleBackToMain} />;
-  }
-
-  // Preview mode
-  if (currentView === 'preview') {
     return (
-      <div>
-        {/* Back to Dashboard Button */}
-        <div className="fixed top-4 left-4 z-50">
-          <button
-            onClick={handleBackToDashboard}
-            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg transition-all duration-200 border border-emerald-500/30"
-          >
-            ← Back to Dashboard
-          </button>
-        </div>
-        
-        <BiolinkPage settings={settings} isPreview={true} />
-      </div>
+      <>
+        <ProfessionalLoader onComplete={handleLoaderComplete} />
+        {renderNotice()}
+        <SupabaseSetup 
+          isOpen={showSupabaseSetup} 
+          onClose={() => setShowSupabaseSetup(false)} 
+        />
+        {showVerification && (
+          <SupabaseVerification 
+            onClose={() => setShowVerification(false)}
+          />
+        )}
+      </>
     );
   }
 
-  // Dashboard view
+  // Invite-only landing gate
+  if (currentView === 'invite-gate') {
+    return (
+      <>
+        <Suspense fallback={<ProfessionalLoader onComplete={() => {}} />}>
+          <InviteOnlyLanding onRequestInvite={handleRequestInvite} />
+        </Suspense>
+        {renderNotice()}
+        <SupabaseSetup 
+          isOpen={showSupabaseSetup} 
+          onClose={() => setShowSupabaseSetup(false)} 
+        />
+        {showVerification && (
+          <SupabaseVerification 
+            onClose={() => setShowVerification(false)}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Elite authentication
+  if (currentView === 'auth') {
+    return (
+      <>
+        <Suspense fallback={<ProfessionalLoader onComplete={() => {}} />}>
+          <AuthForm 
+            onAuthSuccess={handleAuthSuccess} 
+            onBack={handleBackToGate}
+          />
+        </Suspense>
+        {renderNotice()}
+        <SupabaseSetup 
+          isOpen={showSupabaseSetup} 
+          onClose={() => setShowSupabaseSetup(false)} 
+        />
+        {showVerification && (
+          <SupabaseVerification 
+            onClose={() => setShowVerification(false)}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Private biolink preview (elite members only)
+  if (currentView === 'preview') {
+    return (
+      <>
+        <div>
+          <div className="fixed top-4 left-4 z-50">
+            <button
+              onClick={handleBackToDashboard}
+              className="bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg transition-all duration-200 border border-fuchsia-500/30 font-medium"
+            >
+              ← Back to Elite Dashboard
+            </button>
+          </div>
+          
+          <Suspense fallback={<ProfessionalLoader onComplete={() => {}} />}>
+            <BiolinkPage settings={settings} isPreview={true} />
+          </Suspense>
+        </div>
+        {renderNotice()}
+        <SupabaseSetup 
+          isOpen={showSupabaseSetup} 
+          onClose={() => setShowSupabaseSetup(false)} 
+        />
+        {showVerification && (
+          <SupabaseVerification 
+            onClose={() => setShowVerification(false)}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Elite Dashboard (requires authentication)
+  if (!session?.user) {
+    return (
+      <>
+        <Suspense fallback={<ProfessionalLoader onComplete={() => {}} />}>
+          <AuthForm 
+            onAuthSuccess={handleAuthSuccess} 
+            onBack={handleBackToGate}
+          />
+        </Suspense>
+        {renderNotice()}
+        <SupabaseSetup 
+          isOpen={showSupabaseSetup} 
+          onClose={() => setShowSupabaseSetup(false)} 
+        />
+        {showVerification && (
+          <SupabaseVerification 
+            onClose={() => setShowVerification(false)}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Elite Member Dashboard
   return (
-    <Dashboard 
-      settings={settings}
-      onSettingsChange={handleSettingsChange}
-      onPreview={handlePreview}
-      onLogout={handleLogout}
-      user={user}
-      accessToken={accessToken}
-    />
+    <>
+      <Suspense fallback={<ProfessionalLoader onComplete={() => {}} />}>
+        <Dashboard 
+          settings={settings}
+          onSettingsChange={handleSettingsChange}
+          onPreview={handlePreview}
+          onLogout={handleLogout}
+          user={user}
+          accessToken={session.access_token}
+        />
+      </Suspense>
+      {renderNotice()}
+      <SupabaseSetup 
+        isOpen={showSupabaseSetup} 
+        onClose={() => setShowSupabaseSetup(false)} 
+      />
+      {showVerification && (
+        <SupabaseVerification 
+          onClose={() => setShowVerification(false)}
+        />
+      )}
+    </>
   );
 }
