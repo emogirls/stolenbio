@@ -31,7 +31,7 @@
   ],
   "functions": {
     "app/**": {
-      "runtime": "nodejs22.x"
+      "runtime": "nodejs22"
     }
   }
 }
