@@ -1,417 +1,742 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { 
+  Home, 
+  Zap, 
+  ShoppingCart, 
+  HeadphonesIcon, 
+  Gift,
+  User,
+  Upload,
+  X,
+  Plus,
+  Trash2,
+  Copy,
+  Save
+} from 'lucide-react';
 import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
-import { Badge } from './ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Switch } from './ui/switch';
-import { Slider } from './ui/slider';
-import { useLeaderboards } from './hooks/useLeaderboards';
-import { 
-  Settings, 
-  Eye, 
-  LogOut, 
-  Link,
-  User,
-  Palette,
-  Sparkles,
-  Upload,
-  X,
-  Plus,
-  GripVertical,
-  Crown,
-  Zap,
-  Save,
-  Copy,
-  AlertCircle,
-  CheckCircle,
-  Loader2
-} from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { toast } from 'sonner';
 
 interface DashboardProps {
-  settings: any;
-  onSettingsChange: (settings: any) => void;
-  onPreview: () => void;
-  onLogout: () => void;
   user: any;
-  accessToken: string;
+  onLogout: () => void;
+  onHome: () => void;
+}
+
+interface BiolinkData {
+  link: string;
+  title: string;
+  description: string;
+  layout: string;
+  muteBackground: string;
+  borderEffect: string;
+  address: string;
+  favicon: string;
+  enterText: string;
+  customTitle: string;
+  toggleBadges: string;
+  avatar: string;
+  background: string;
+  banner: string;
 }
 
 interface SocialLink {
   id: string;
-  platform: string;
+  type: string;
   url: string;
-  icon?: string;
+  icon: string;
+  position: number;
 }
 
-interface FileUpload {
-  avatar?: string;
-  background?: string;
-  music?: string;
-  font?: string;
-  banner?: string;
-}
-
-export default function Dashboard({ settings, onSettingsChange, onPreview, onLogout, user, accessToken }: DashboardProps) {
+export default function Dashboard({ user, onLogout, onHome }: DashboardProps) {
   const [activeTab, setActiveTab] = useState('biolink');
+  const [isLoading, setIsLoading] = useState(false);
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
-  const [uploads, setUploads] = useState<FileUpload>({});
-  const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
-  const [notifications, setNotifications] = useState<{ type: 'success' | 'error', message: string }[]>([]);
+  
+  // Biolink form data
+  const [biolinkData, setBiolinkData] = useState<BiolinkData>({
+    link: user?.email?.split('@')[0] || 'username',
+    title: '',
+    description: '',
+    layout: '1',
+    muteBackground: 'enable',
+    borderEffect: 'none',
+    address: '',
+    favicon: '',
+    enterText: 'Click to Enter',
+    customTitle: '',
+    toggleBadges: 'enable',
+    avatar: '',
+    background: '',
+    banner: ''
+  });
 
-  // Platform options
+  // Misc/Effects data
+  const [effectsData, setEffectsData] = useState({
+    accentColor: '#ffffff',
+    textColor: '#ffffff',
+    backgroundColor: '#000000',
+    iconColor: '#ffffff',
+    discordRpc: 'disable',
+    discordBorder: 'enable',
+    discordServer: '',
+    backgroundEffect: 'default',
+    descriptionEffect: 'default',
+    border: 'normal',
+    borderGlow: 'disabled',
+    effect: 'both',
+    titleType: 'normal',
+    particles: 'enable',
+    particleColor: '#ffffff',
+    customParticles: '',
+    specialEffects: 'none',
+    viewsPosition: 'normal',
+    badgeColor: 'enabled',
+    mouseTrail: 'none',
+    mouseColor: '#ffffff',
+    mouseEmoji: ''
+  });
+
+  // Premium data
+  const [premiumData, setPremiumData] = useState({
+    aliases: '',
+    badge1: '',
+    badge1Text: '',
+    badge1Position: 'first',
+    badge2: '',
+    badge2Text: '',
+    badge2Position: 'first',
+    avatarDecoration: 'none'
+  });
+
+  // Social link form
+  const [newSocial, setNewSocial] = useState({
+    type: '',
+    url: '',
+    customIcon: ''
+  });
+
+  const sidebarItems = [
+    { id: 'dashboard', icon: Home, label: 'Dashboard' },
+    { id: 'biolink', icon: Zap, label: 'Bio-Link' },
+    { id: 'purchase', icon: ShoppingCart, label: 'Purchase' },
+    { id: 'support', icon: HeadphonesIcon, label: 'Support' },
+    { id: 'redeem', icon: Gift, label: 'Redeem Codes' }
+  ];
+
   const socialPlatforms = [
-    'Instagram', 'Twitter', 'TikTok', 'YouTube', 'Spotify', 'GitHub', 
-    'Discord', 'Telegram', 'Reddit', 'Snapchat', 'OnlyFans', 'Custom'
+    'Instagram', 'Twitter', 'TikTok', 'YouTube', 'Spotify', 'Discord',
+    'GitHub', 'LinkedIn', 'Snapchat', 'Reddit', 'Telegram', 'Steam',
+    'Roblox', 'PayPal', 'CashApp', 'OnlyFans', 'Custom'
   ];
 
-  const layoutOptions = [
-    { value: '1', label: 'Minimal Grid' },
-    { value: '2', label: 'Centered Stack' },
-    { value: '3', label: 'Split Layout' }
-  ];
-
-  const effectOptions = [
-    { value: 'none', label: 'None' },
-    { value: 'glow', label: 'Glow' },
-    { value: 'blur', label: 'Blur' },
-    { value: 'glitch', label: 'Glitch' },
-    { value: 'fade', label: 'Fade' }
-  ];
-
-  const avatarDecorations = [
-    { value: 'none', label: 'None' },
-    { value: 'katana', label: 'Katana' },
-    { value: 'fire', label: 'Fire' },
-    { value: 'lightning', label: 'Lightning' },
-    { value: 'space', label: 'Space' }
-  ];
-
+  // Load initial configuration from localStorage
   useEffect(() => {
-    fetchSocialLinks();
-  }, []);
+    loadBiolinkConfig();
+  }, [user]);
 
-  const addNotification = (type: 'success' | 'error', message: string) => {
-    const id = Date.now().toString();
-    setNotifications(prev => [...prev, { type, message }]);
-    setTimeout(() => {
-      setNotifications(prev => prev.filter((_, index) => index !== 0));
-    }, 3000);
-  };
-
-  const fetchSocialLinks = async () => {
-    // Mock social links data
-    setSocialLinks([
-      { id: '1', platform: 'Twitter', url: 'https://twitter.com/user' },
-      { id: '2', platform: 'GitHub', url: 'https://github.com/user' },
-    ]);
-  };
-
-  const handleSettingChange = (key: string, value: any) => {
-    onSettingsChange({ ...settings, [key]: value });
-    addNotification('success', 'Settings updated');
-  };
-
-  const handleFileUpload = async (type: string, file: File) => {
-    setLoading(prev => ({ ...prev, [type]: true }));
-    
+  const loadBiolinkConfig = () => {
     try {
-      // Simulate file upload
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const mockUrl = `https://files.example.com/${file.name}`;
-      setUploads(prev => ({ ...prev, [type]: mockUrl }));
-      handleSettingChange(type, mockUrl);
-      addNotification('success', `${type.charAt(0).toUpperCase() + type.slice(1)} uploaded successfully`);
+      if (!user?.id) return;
+
+      const savedConfig = localStorage.getItem(`biolink_config_${user.id}`);
+      if (savedConfig) {
+        const config = JSON.parse(savedConfig);
+        setBiolinkData(prev => ({ ...prev, ...config.biolink }));
+        setSocialLinks(config.socialLinks || []);
+        if (config.effects) {
+          setEffectsData(prev => ({ ...prev, ...config.effects }));
+        }
+        if (config.premium) {
+          setPremiumData(prev => ({ ...prev, ...config.premium }));
+        }
+      } else {
+        // Set default username from email
+        setBiolinkData(prev => ({
+          ...prev,
+          link: user.email?.split('@')[0] || 'username'
+        }));
+      }
     } catch (error) {
-      addNotification('error', `Failed to upload ${type}`);
-    } finally {
-      setLoading(prev => ({ ...prev, [type]: false }));
+      console.error('Error loading biolink config:', error);
+      toast.error('Failed to load configuration');
     }
   };
 
-  const removeUpload = (type: string) => {
-    setUploads(prev => ({ ...prev, [type]: undefined }));
-    handleSettingChange(type, '');
-    addNotification('success', `${type.charAt(0).toUpperCase() + type.slice(1)} removed`);
+  const saveConfigToStorage = (configUpdate: any) => {
+    try {
+      if (!user?.id) return;
+
+      const currentConfig = JSON.parse(localStorage.getItem(`biolink_config_${user.id}`) || '{}');
+      const updatedConfig = {
+        ...currentConfig,
+        ...configUpdate,
+        updatedAt: new Date().toISOString()
+      };
+      
+      localStorage.setItem(`biolink_config_${user.id}`, JSON.stringify(updatedConfig));
+      return true;
+    } catch (error) {
+      console.error('Error saving config:', error);
+      return false;
+    }
   };
 
-  const addSocialLink = () => {
-    const newLink: SocialLink = {
-      id: Date.now().toString(),
-      platform: 'Custom',
-      url: ''
-    };
-    setSocialLinks(prev => [...prev, newLink]);
+  const handleBiolinkChange = (field: string, value: string) => {
+    setBiolinkData(prev => ({ ...prev, [field]: value }));
   };
 
-  const removeSocialLink = (id: string) => {
-    setSocialLinks(prev => prev.filter(link => link.id !== id));
-    addNotification('success', 'Social link removed');
+  const handleEffectsChange = (field: string, value: string) => {
+    setEffectsData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePremiumChange = (field: string, value: string) => {
+    setPremiumData(prev => ({ ...prev, [field]: value }));
   };
 
   const copyBiolinkUrl = () => {
-    const url = `stolen.bio/${user?.user_metadata?.username || 'user'}`;
+    const url = `https://stolen.bio/${biolinkData.link}`;
     navigator.clipboard.writeText(url);
-    addNotification('success', 'Biolink URL copied to clipboard');
+    toast.success('Link copied to clipboard!');
   };
 
-  const FileUploadCard = ({ type, title, accept }: { type: string, title: string, accept: string }) => (
-    <div className="space-y-3">
-      <Label className="text-slate-400 text-sm subheading-elegant">{title}</Label>
-      
-      {uploads[type as keyof FileUpload] || settings[type] ? (
-        <div className="relative elegant-card p-4 min-h-[80px] flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-white/60 text-sm mb-2">
-              {uploads[type as keyof FileUpload] ? 'Uploaded' : 'Current'}
-            </div>
-            <div className="text-white/40 text-xs caption-elegant truncate max-w-[200px]">
-              {uploads[type as keyof FileUpload] || settings[type]}
-            </div>
-          </div>
-          <button
-            onClick={() => removeUpload(type)}
-            className="absolute top-2 right-2 w-6 h-6 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 rounded text-xs flex items-center justify-center transition-colors"
-          >
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-      ) : (
-        <label className="block elegant-card p-6 text-center cursor-pointer hover:border-white/20 transition-colors min-h-[80px] flex flex-col items-center justify-center">
-          <input
-            type="file"
-            accept={accept}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFileUpload(type, file);
-            }}
-            className="hidden"
-            disabled={loading[type]}
-          />
-          {loading[type] ? (
-            <div className="flex items-center gap-2 text-white/60">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Uploading...</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-white/40 hover:text-white/60 transition-colors">
-              <Upload className="w-4 h-4" />
-              <span className="text-sm">Upload {title}</span>
-            </div>
-          )}
-        </label>
-      )}
-    </div>
-  );
+  const addSocialLink = () => {
+    if (!newSocial.type || !newSocial.url) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    const newSocialLink = {
+      id: Date.now().toString(),
+      type: newSocial.type,
+      url: newSocial.url,
+      icon: newSocial.type === 'Custom' ? newSocial.customIcon : newSocial.type,
+      position: socialLinks.length
+    };
+    
+    const updatedSocialLinks = [...socialLinks, newSocialLink];
+    setSocialLinks(updatedSocialLinks);
+    setNewSocial({ type: '', url: '', customIcon: '' });
+    
+    // Save to localStorage
+    saveConfigToStorage({ socialLinks: updatedSocialLinks });
+    toast.success('Social link added!');
+  };
+
+  const removeSocialLink = (id: string) => {
+    const updatedSocialLinks = socialLinks.filter(link => link.id !== id);
+    setSocialLinks(updatedSocialLinks);
+    
+    // Save to localStorage
+    saveConfigToStorage({ socialLinks: updatedSocialLinks });
+    toast.success('Social link removed!');
+  };
+
+  const saveBiolink = () => {
+    setIsLoading(true);
+    try {
+      const success = saveConfigToStorage({ biolink: biolinkData });
+      if (success) {
+        toast.success('Biolink configuration saved!');
+      } else {
+        toast.error('Failed to save configuration');
+      }
+    } catch (error) {
+      toast.error('Failed to save configuration');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveEffects = () => {
+    setIsLoading(true);
+    try {
+      const success = saveConfigToStorage({ effects: effectsData });
+      if (success) {
+        toast.success('Effects configuration saved!');
+      } else {
+        toast.error('Failed to save effects');
+      }
+    } catch (error) {
+      toast.error('Failed to save effects');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const savePremium = () => {
+    setIsLoading(true);
+    try {
+      const success = saveConfigToStorage({ premium: premiumData });
+      if (success) {
+        toast.success('Premium configuration saved!');
+      } else {
+        toast.error('Failed to save premium settings');
+      }
+    } catch (error) {
+      toast.error('Failed to save premium settings');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden">
-      {/* Notifications */}
-      <div className="fixed top-4 right-4 z-50 space-y-2">
-        <AnimatePresence>
-          {notifications.map((notification, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, x: 100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 100 }}
-              className={`px-4 py-2 rounded border text-sm flex items-center gap-2 ${
-                notification.type === 'success' 
-                  ? 'bg-green-500/10 border-green-500/30 text-green-400' 
-                  : 'bg-red-500/10 border-red-500/30 text-red-400'
+    <div className="min-h-screen bg-black text-white flex">
+      {/* Sidebar */}
+      <div className="w-64 bg-black border-r border-white/10 p-6">
+        <div className="mb-8">
+          <h1 className="text-xl font-medium">stolen.bio</h1>
+        </div>
+
+        <nav className="space-y-2">
+          <div className="text-xs uppercase tracking-wider text-white/40 mb-4">Main</div>
+          {sidebarItems.slice(0, 1).map((item) => (
+            <button
+              key={item.id}
+              className="w-full flex items-center gap-3 px-3 py-2 text-left text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+            >
+              <item.icon size={18} />
+              {item.label}
+            </button>
+          ))}
+
+          <div className="text-xs uppercase tracking-wider text-white/40 mb-4 mt-6">Panel</div>
+          {sidebarItems.slice(1).map((item) => (
+            <button
+              key={item.id}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors rounded-lg ${
+                item.id === 'biolink' 
+                  ? 'text-white bg-white/10' 
+                  : 'text-white/70 hover:text-white hover:bg-white/5'
               }`}
             >
-              {notification.type === 'success' ? 
-                <CheckCircle className="w-4 h-4" /> : 
-                <AlertCircle className="w-4 h-4" />
-              }
-              {notification.message}
-            </motion.div>
+              <item.icon size={18} />
+              {item.label}
+            </button>
           ))}
-        </AnimatePresence>
+        </nav>
       </div>
 
-      {/* Background */}
-      <div className="absolute inset-0">
-        <div 
-          className="absolute inset-0 opacity-3"
-          style={{
-            backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px)`,
-            backgroundSize: '100px 100px'
-          }}
-        />
-      </div>
-
-      <div className="flex h-screen">
-        {/* Sidebar */}
-        <motion.div 
-          className="w-64 bg-black/50 backdrop-blur-sm border-r border-white/10 p-6 flex flex-col"
-          initial={{ x: -100, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.8 }}
-        >
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-white heading-elegant text-xl mb-2">Control Panel</h1>
-            <div className="text-white/60 text-sm">
-              {user?.user_metadata?.name || 'Elite User'}
-            </div>
-            <Badge variant="outline" className="mt-2 text-xs border-emerald-500/50 text-emerald-400">
-              {user?.user_metadata?.membershipTier?.charAt(0).toUpperCase() + user?.user_metadata?.membershipTier?.slice(1) || 'Elite'}
-            </Badge>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 space-y-2">
-            {[
-              { id: 'biolink', label: 'Bio Link', icon: Link },
-              { id: 'socials', label: 'Socials', icon: User },
-              { id: 'effects', label: 'Effects', icon: Sparkles },
-              { id: 'premium', label: 'Premium', icon: Crown }
-            ].map((item, index) => (
-              <motion.button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full text-left p-3 rounded transition-all duration-300 flex items-center gap-3 text-sm ${
-                  activeTab === item.id 
-                    ? 'bg-white/5 text-white border-l-2 border-white/50' 
-                    : 'text-white/60 hover:text-white/80 hover:bg-white/5'
-                }`}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 + index * 0.1 }}
-                whileHover={{ x: 5 }}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.label}
-              </motion.button>
-            ))}
-          </nav>
-
-          {/* Actions */}
-          <div className="space-y-2 pt-4 border-t border-white/10">
-            <button
-              onClick={onPreview}
-              className="w-full btn-elegant px-4 py-2 text-sm flex items-center gap-2"
-            >
-              <Eye className="w-4 h-4" />
-              Preview
-            </button>
-            <button
-              onClick={onLogout}
-              className="w-full bg-transparent border border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 px-4 py-2 rounded text-sm transition-all duration-300 flex items-center gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </button>
-          </div>
-        </motion.div>
-
-        {/* Main Content */}
-        <div className="flex-1 overflow-auto">
-          <div className="p-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              {/* Bio-Link Tab */}
-              {activeTab === 'biolink' && (
-                <div className="space-y-8">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl heading-elegant">Bio Link Configuration</h2>
-                    <Button
-                      onClick={copyBiolinkUrl}
-                      variant="outline"
-                      className="btn-elegant flex items-center gap-2"
-                    >
-                      <Copy className="w-4 h-4" />
-                      Copy URL
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Basic Info */}
-                    <Card className="elegant-card">
-                      <CardContent className="p-6 space-y-6">
-                        <h3 className="text-white subheading-elegant mb-4">Basic Information</h3>
-                        
-                        <div className="space-y-4">
-                          <div>
-                            <Label className="text-slate-400 text-sm subheading-elegant">Username</Label>
-                            <div className="flex mt-2">
-                              <span className="px-3 py-2 bg-black/50 border border-white/20 border-r-0 rounded-l text-white/60 text-sm">
-                                stolen.bio/
-                              </span>
-                              <Input
-                                value={settings.customLink || ''}
-                                onChange={(e) => handleSettingChange('customLink', e.target.value)}
-                                className="elegant-input rounded-l-none"
-                                placeholder="username"
-                              />
-                            </div>
-                          </div>
-
-                          <div>
-                            <Label className="text-slate-400 text-sm subheading-elegant">Title</Label>
-                            <Input
-                              value={settings.title || ''}
-                              onChange={(e) => handleSettingChange('title', e.target.value)}
-                              className="elegant-input mt-2"
-                              placeholder="Your Title"
-                            />
-                          </div>
-
-                          <div>
-                            <Label className="text-slate-400 text-sm subheading-elegant">Description</Label>
-                            <Textarea
-                              value={settings.description || ''}
-                              onChange={(e) => handleSettingChange('description', e.target.value)}
-                              className="elegant-input mt-2 min-h-[100px]"
-                              placeholder="Your bio description..."
-                            />
-                          </div>
-
-                          <div>
-                            <Label className="text-slate-400 text-sm subheading-elegant">Address</Label>
-                            <Input
-                              value={settings.address || ''}
-                              onChange={(e) => handleSettingChange('address', e.target.value)}
-                              className="elegant-input mt-2"
-                              placeholder="Location"
-                            />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Media Uploads */}
-                    <Card className="elegant-card">
-                      <CardContent className="p-6 space-y-6">
-                        <h3 className="text-white subheading-elegant mb-4">Media Uploads</h3>
-                        
-                        <div className="space-y-4">
-                          <FileUploadCard type="avatar" title="Avatar" accept="image/*" />
-                          <FileUploadCard type="background" title="Background" accept="image/*,video/mp4" />
-                          <FileUploadCard type="music" title="Background Music" accept="audio/*" />
-                          <FileUploadCard type="banner" title="Banner" accept="image/*" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="border-b border-white/10 p-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-medium">Configuration Panel</h2>
+            
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center">
+                  <User size={16} />
                 </div>
-              )}
-
-              {/* Continue with other tabs... */}
-              {/* For brevity, I'll show the pattern but you can apply the same elegant styling to all tabs */}
-
-            </motion.div>
+                <span className="text-sm text-white/70">{user?.email}</span>
+              </div>
+              
+              <Button
+                onClick={onHome}
+                variant="outline"
+                className="border-white/20 bg-transparent hover:bg-white/5 text-white"
+              >
+                Home
+              </Button>
+              
+              <Button
+                onClick={onLogout}
+                variant="outline"
+                className="border-white/20 bg-transparent hover:bg-white/5 text-white"
+              >
+                Sign Out
+              </Button>
+            </div>
           </div>
+        </header>
+
+        {/* Content */}
+        <div className="flex-1 p-6">
+          <Card className="max-w-2xl mx-auto bg-black border-white/10">
+            <CardContent className="p-6">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid grid-cols-4 w-full bg-white/5 mb-6">
+                  <TabsTrigger value="biolink" className="text-xs">Bio-Link</TabsTrigger>
+                  <TabsTrigger value="biosocials" className="text-xs">Bio-Socials</TabsTrigger>
+                  <TabsTrigger value="misc" className="text-xs">Misc</TabsTrigger>
+                  <TabsTrigger value="premium" className="text-xs">Premium</TabsTrigger>
+                </TabsList>
+
+                {/* Bio-Link Tab */}
+                <TabsContent value="biolink" className="space-y-4">
+                  <div>
+                    <Label>Link</Label>
+                    <div className="flex mt-2">
+                      <span className="inline-flex items-center px-3 text-sm text-white/70 bg-white/5 border border-r-0 border-white/10 rounded-l-md">
+                        https://stolen.bio/
+                      </span>
+                      <Input
+                        value={biolinkData.link}
+                        onChange={(e) => handleBiolinkChange('link', e.target.value)}
+                        className="rounded-l-none bg-white/5 border-white/10"
+                        placeholder="username"
+                      />
+                      <Button
+                        onClick={copyBiolinkUrl}
+                        size="sm"
+                        className="ml-2 bg-white/10 hover:bg-white/20"
+                      >
+                        <Copy size={14} />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Title</Label>
+                    <Input
+                      value={biolinkData.title}
+                      onChange={(e) => handleBiolinkChange('title', e.target.value)}
+                      className="mt-2 bg-white/5 border-white/10"
+                      placeholder="Your title"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Description</Label>
+                    <Textarea
+                      value={biolinkData.description}
+                      onChange={(e) => handleBiolinkChange('description', e.target.value)}
+                      className="mt-2 bg-white/5 border-white/10"
+                      placeholder="Your bio description"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Layout</Label>
+                    <Select value={biolinkData.layout} onValueChange={(value) => handleBiolinkChange('layout', value)}>
+                      <SelectTrigger className="mt-2 bg-white/5 border-white/10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Layout 1</SelectItem>
+                        <SelectItem value="2">Layout 2</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Enter Text</Label>
+                    <Input
+                      value={biolinkData.enterText}
+                      onChange={(e) => handleBiolinkChange('enterText', e.target.value)}
+                      className="mt-2 bg-white/5 border-white/10"
+                      placeholder="Click to Enter"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Address</Label>
+                    <Input
+                      value={biolinkData.address}
+                      onChange={(e) => handleBiolinkChange('address', e.target.value)}
+                      className="mt-2 bg-white/5 border-white/10"
+                      placeholder="Berlin"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Show Badges</Label>
+                    <Select value={biolinkData.toggleBadges} onValueChange={(value) => handleBiolinkChange('toggleBadges', value)}>
+                      <SelectTrigger className="mt-2 bg-white/5 border-white/10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="enable">Yes</SelectItem>
+                        <SelectItem value="disable">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button onClick={saveBiolink} disabled={isLoading} className="w-full bg-white text-black hover:bg-white/90">
+                    <Save size={16} className="mr-2" />
+                    {isLoading ? 'Saving...' : 'Save Config'}
+                  </Button>
+                </TabsContent>
+
+                {/* Bio-Socials Tab */}
+                <TabsContent value="biosocials" className="space-y-4">
+                  {/* Existing social links */}
+                  {socialLinks.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Your Social Links</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {socialLinks.map((social) => (
+                          <div key={social.id} className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg">
+                            <span className="text-sm">{social.type}</span>
+                            <button
+                              onClick={() => removeSocialLink(social.id)}
+                              className="text-red-400 hover:text-red-300"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label>Social Platform</Label>
+                    <Select value={newSocial.type} onValueChange={(value) => setNewSocial(prev => ({ ...prev, type: value }))}>
+                      <SelectTrigger className="mt-2 bg-white/5 border-white/10">
+                        <SelectValue placeholder="Select Social Platform" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {socialPlatforms.map((platform) => (
+                          <SelectItem key={platform} value={platform}>{platform}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Social Link URL</Label>
+                    <Input
+                      value={newSocial.url}
+                      onChange={(e) => setNewSocial(prev => ({ ...prev, url: e.target.value }))}
+                      className="mt-2 bg-white/5 border-white/10"
+                      placeholder="Enter Social Link URL"
+                    />
+                  </div>
+
+                  {newSocial.type === 'Custom' && (
+                    <div>
+                      <Label>Custom Icon URL</Label>
+                      <Input
+                        value={newSocial.customIcon}
+                        onChange={(e) => setNewSocial(prev => ({ ...prev, customIcon: e.target.value }))}
+                        className="mt-2 bg-white/5 border-white/10"
+                        placeholder="Enter Icon URL"
+                      />
+                    </div>
+                  )}
+
+                  <Button onClick={addSocialLink} className="w-full bg-white text-black hover:bg-white/90">
+                    <Plus size={16} className="mr-2" />
+                    Add Social
+                  </Button>
+                </TabsContent>
+
+                {/* Misc Tab */}
+                <TabsContent value="misc" className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Accent Color</Label>
+                      <Input
+                        type="color"
+                        value={effectsData.accentColor}
+                        onChange={(e) => handleEffectsChange('accentColor', e.target.value)}
+                        className="mt-2 h-10 bg-white/5 border-white/10"
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Text Color</Label>
+                      <Input
+                        type="color"
+                        value={effectsData.textColor}
+                        onChange={(e) => handleEffectsChange('textColor', e.target.value)}
+                        className="mt-2 h-10 bg-white/5 border-white/10"
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Background Color</Label>
+                      <Input
+                        type="color"
+                        value={effectsData.backgroundColor}
+                        onChange={(e) => handleEffectsChange('backgroundColor', e.target.value)}
+                        className="mt-2 h-10 bg-white/5 border-white/10"
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Icon Color</Label>
+                      <Input
+                        type="color"
+                        value={effectsData.iconColor}
+                        onChange={(e) => handleEffectsChange('iconColor', e.target.value)}
+                        className="mt-2 h-10 bg-white/5 border-white/10"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Background Effect</Label>
+                    <Select value={effectsData.backgroundEffect} onValueChange={(value) => handleEffectsChange('backgroundEffect', value)}>
+                      <SelectTrigger className="mt-2 bg-white/5 border-white/10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Normal Background</SelectItem>
+                        <SelectItem value="pixelated">Pixelated Background</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Description Effect</Label>
+                    <Select value={effectsData.descriptionEffect} onValueChange={(value) => handleEffectsChange('descriptionEffect', value)}>
+                      <SelectTrigger className="mt-2 bg-white/5 border-white/10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Normal Description</SelectItem>
+                        <SelectItem value="typing">Typing Effect</SelectItem>
+                        <SelectItem value="glitch">Glitch Effect</SelectItem>
+                        <SelectItem value="fade">Fade In-Out</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Special Effects</Label>
+                    <Select value={effectsData.specialEffects} onValueChange={(value) => handleEffectsChange('specialEffects', value)}>
+                      <SelectTrigger className="mt-2 bg-white/5 border-white/10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="bats">Bats Flying</SelectItem>
+                        <SelectItem value="christmas">Christmas Snow</SelectItem>
+                        <SelectItem value="rain">Rain</SelectItem>
+                        <SelectItem value="shootingstars">Shooting Stars</SelectItem>
+                        <SelectItem value="glitch">Glitch</SelectItem>
+                        <SelectItem value="cyberpunk">Cyberpunk</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Mouse Trail</Label>
+                    <Select value={effectsData.mouseTrail} onValueChange={(value) => handleEffectsChange('mouseTrail', value)}>
+                      <SelectTrigger className="mt-2 bg-white/5 border-white/10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="cat">Cat</SelectItem>
+                        <SelectItem value="springy">Springy</SelectItem>
+                        <SelectItem value="snowflake">Snowflake</SelectItem>
+                        <SelectItem value="bubbles">Bubbles</SelectItem>
+                        <SelectItem value="ghost">Ghost</SelectItem>
+                        <SelectItem value="trail">Trail</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button onClick={saveEffects} disabled={isLoading} className="w-full bg-white text-black hover:bg-white/90">
+                    <Save size={16} className="mr-2" />
+                    {isLoading ? 'Saving...' : 'Save Config'}
+                  </Button>
+                </TabsContent>
+
+                {/* Premium Tab */}
+                <TabsContent value="premium" className="space-y-4">
+                  <div>
+                    <Label>Aliases</Label>
+                    <Input
+                      value={premiumData.aliases}
+                      onChange={(e) => handlePremiumChange('aliases', e.target.value)}
+                      className="mt-2 bg-white/5 border-white/10"
+                      placeholder="alias1,alias2,alias3"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Badge 1</Label>
+                    <Input
+                      value={premiumData.badge1}
+                      onChange={(e) => handlePremiumChange('badge1', e.target.value)}
+                      className="mt-2 bg-white/5 border-white/10"
+                      placeholder="Badge URL Icon"
+                    />
+                    <Input
+                      value={premiumData.badge1Text}
+                      onChange={(e) => handlePremiumChange('badge1Text', e.target.value)}
+                      className="mt-2 bg-white/5 border-white/10"
+                      placeholder="Badge Text"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Badge 1 Position</Label>
+                    <Select value={premiumData.badge1Position} onValueChange={(value) => handlePremiumChange('badge1Position', value)}>
+                      <SelectTrigger className="mt-2 bg-white/5 border-white/10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="first">First</SelectItem>
+                        <SelectItem value="last">Last</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Badge 2</Label>
+                    <Input
+                      value={premiumData.badge2}
+                      onChange={(e) => handlePremiumChange('badge2', e.target.value)}
+                      className="mt-2 bg-white/5 border-white/10"
+                      placeholder="Badge URL Icon"
+                    />
+                    <Input
+                      value={premiumData.badge2Text}
+                      onChange={(e) => handlePremiumChange('badge2Text', e.target.value)}
+                      className="mt-2 bg-white/5 border-white/10"
+                      placeholder="Badge Text"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Badge 2 Position</Label>
+                    <Select value={premiumData.badge2Position} onValueChange={(value) => handlePremiumChange('badge2Position', value)}>
+                      <SelectTrigger className="mt-2 bg-white/5 border-white/10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="first">First</SelectItem>
+                        <SelectItem value="last">Last</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Avatar Decoration</Label>
+                    <Select value={premiumData.avatarDecoration} onValueChange={(value) => handlePremiumChange('avatarDecoration', value)}>
+                      <SelectTrigger className="mt-2 bg-white/5 border-white/10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="glow">Glow</SelectItem>
+                        <SelectItem value="border">Border</SelectItem>
+                        <SelectItem value="sparkles">Sparkles</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button onClick={savePremium} disabled={isLoading} className="w-full bg-white text-black hover:bg-white/90">
+                    <Save size={16} className="mr-2" />
+                    {isLoading ? 'Saving...' : 'Save Config'}
+                  </Button>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

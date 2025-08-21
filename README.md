@@ -1,127 +1,157 @@
-# stolen.bio - Elite Invite-Only Biolink Platform
+# stolen.bio
 
-A mysterious, exclusive biolink platform with invite-only access, gamification elements, and premium features.
+A modern, invite-only biolink platform built with React, TypeScript, and Supabase. Create stunning personal pages with custom themes, layouts, and social media integration.
 
-## 🔐 Features
+## Features
 
-- **Invite-Only Access**: Exclusive membership with valid invite codes
-- **Elite Dashboard**: Comprehensive biolink customization
-- **Gamification**: Steal Coins, leaderboards, and achievements
-- **Premium Effects**: Advanced visual effects and customization
-- **Social Integration**: Drag-and-drop social media management
-- **Real-time Updates**: Live data with Supabase backend
+- 🔐 **Invite-only registration** with secure authentication
+- 🎨 **Customizable biolink pages** with multiple layouts and themes
+- 🔗 **Social media integration** with popular platforms
+- ⚡ **Real-time dashboard** for managing your biolink
+- 🎯 **Advanced customization** including colors, effects, and animations
+- 📱 **Fully responsive** design for all devices
+- 🚀 **Fast and secure** powered by Supabase
 
-## 🚀 Quick Start
+## Tech Stack
+
+- **Frontend**: React 18, TypeScript, Vite
+- **Styling**: Tailwind CSS v4, Radix UI components
+- **Backend**: Supabase Authentication
+- **Storage**: Browser localStorage (for biolink configs)
+- **Deployment**: Vercel
+- **Animations**: Framer Motion
+
+## Quick Start
 
 ### Prerequisites
 
 - Node.js 18+ 
-- A Supabase account and project
+- npm or yarn
+- Supabase account
 
-### 1. Clone and Install
+### Installation
 
-```bash
-git clone <repository-url>
-cd stolen-bio
-npm install
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd biolink-platform
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Update Supabase configuration**
+   Edit `/utils/supabase/client.tsx` with your Supabase project credentials
+
+4. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+5. **Open your browser**
+   Navigate to `http://localhost:3000`
+
+## Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+- `npm run type-check` - Run TypeScript type checking
+
+## Authentication
+
+The platform uses invite-only registration with Supabase authentication. Valid invite codes:
+- `WELCOME1`, `BETA2024`, `EARLY001`, `TESTCODE`, `DEMO123`
+- `STOLEN1`, `BIO2024`, `ALPHA001`
+
+## Project Structure
+
+```
+├── src/
+│   └── main.tsx          # Application entry point
+├── components/
+│   ├── Dashboard.tsx     # Main dashboard component
+│   └── ui/              # Reusable UI components
+├── utils/
+│   └── supabase/        # Supabase configuration
+├── styles/
+│   └── globals.css      # Global styles and Tailwind config
+└── App.tsx             # Root application component
 ```
 
-### 2. Setup Supabase
+## Configuration Storage
 
-1. Go to [supabase.com](https://supabase.com) and create a new project
-2. Copy your project URL and anon key from Settings > API
-3. Create a `.env` file in the project root:
+Biolink configurations are stored locally in the browser's localStorage, providing:
+- Instant saving and loading
+- No database setup required
+- Offline functionality
+- Simple deployment
 
-```env
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key-here
-```
+Configuration is saved per user ID and includes:
+- Basic biolink settings (title, description, layout)
+- Social media links
+- Visual effects and customizations
+- Premium features
 
-### 3. Setup Database
+## Deployment
 
-1. Go to your Supabase project dashboard
-2. Navigate to SQL Editor
-3. Copy and run the SQL from `/supabase/migrations/001_initial_schema.sql`
+### Deploy to Vercel
 
-This will create all necessary tables and insert default invite codes including:
-- `NEPTUNE_TESTING_PURPOSES` (unlimited uses)
-- `ELITE2024` (100 uses)
-- `FOUNDER` (10 uses) 
-- `VIP2024` (50 uses)
+1. **Connect your repository** to Vercel
+2. **Configure environment variables** in Vercel dashboard (if using environment variables)
+3. **Deploy** - Vercel will automatically build and deploy
 
-### 4. Run the Development Server
+### Manual Deployment
 
-```bash
-npm run dev
-```
-
-## 🎫 Testing Access
-
-Use the invite code `NEPTUNE_TESTING_PURPOSES` to create a test account.
-
-## 🏗️ Database Schema
-
-The platform uses the following main tables:
-
-- **invite_codes**: Manages invitation codes and usage limits
-- **profiles**: User biolink profiles and customization settings
-- **user_stats**: User statistics and gamification data
-- **invite_code_uses**: Tracks invite code usage
-
-## 🛠️ Key Components
-
-- **MainPage**: Mysterious landing page with invite code validation
-- **AuthForm**: Supabase-powered authentication with invite verification  
-- **Dashboard**: Comprehensive biolink customization interface
-- **BiolinkPage**: Public biolink display with effects and customization
-
-## 🎨 Design Philosophy
-
-- **Minimal & Mysterious**: Clean, cryptic interface design
-- **Elite Aesthetic**: Premium feel with technical/restricted theming
-- **Professional UX**: Subtle animations and interactions
-- **Dark Theme**: Midnight blue color scheme with emerald accents
-
-## 🔧 Configuration
-
-The platform supports extensive customization:
-
-- **Visual Effects**: Particles, glows, animations, mouse trails
-- **Layout Options**: Multiple biolink layouts and arrangements  
-- **Color Themes**: Full color customization with live preview
-- **Media Uploads**: Avatar, background, music, and banner support
-- **Social Links**: Drag-and-drop social media management
-- **Premium Features**: Elite badges, decorations, and effects
-
-## 📊 Gamification
-
-- **Steal Coins**: Virtual currency system
-- **Leaderboards**: Global rankings by various metrics
-- **Achievements**: Milestone-based badge system
-- **Daily Rewards**: Login streaks and daily coin bonuses
-- **Affiliate System**: Referral tracking and rewards
-
-## 🚦 Deployment
-
-1. Build the project:
 ```bash
 npm run build
 ```
 
-2. Deploy the `dist` folder to your hosting provider
-3. Ensure your Supabase project is properly configured with RLS policies
+The `dist` folder contains the production build ready for deployment.
 
-## 🔐 Security
+## Supabase Setup
 
-- Row Level Security (RLS) enabled on all tables
-- Invite code validation prevents unauthorized access
-- User data isolation and proper authentication flows
-- Secure profile and settings management
+1. Create a new Supabase project
+2. Enable authentication in the Supabase dashboard
+3. Update the credentials in `/utils/supabase/client.tsx`
+4. Configure authentication providers as needed
 
-## 🎯 Elite Experience
+## Features Overview
 
-stolen.bio is designed as an exclusive platform where access is earned through invitation. Every aspect of the user experience reinforces this exclusivity while providing powerful biolink customization tools.
+### Dashboard
+- Tabbed interface for configuration (Bio-Link, Bio-Socials, Misc, Premium)
+- Real-time preview of changes
+- Social media links management
+- Color and theme customization
+- Advanced effects and animations
 
----
+### Authentication
+- Secure user registration with invite codes
+- Session management with Supabase
+- Automatic login state persistence
 
-**Access is restricted. Invitation required.**
+### Biolink Pages
+- Multiple layout options
+- Custom colors and effects
+- Social media integration
+- Responsive design
+- Local storage persistence
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and linting
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
+
+## Support
+
+For support and questions, please create an issue in the repository.

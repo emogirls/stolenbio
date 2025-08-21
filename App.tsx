@@ -1,715 +1,386 @@
-import { Suspense, lazy, useState, useEffect, startTransition, useCallback } from 'react';
-import { ProfessionalLoader } from './components/ProfessionalLoader';
-import { SupabaseSetup } from './components/SupabaseSetup';
-import { SupabaseVerification } from './components/SupabaseVerification';
-import { supabase, auth, db, isSupabaseConfigured } from './utils/supabase/client';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Eye, EyeOff, LogIn, UserPlus, ArrowRight, Mail, Lock, Key } from 'lucide-react';
+import { Button } from './components/ui/button';
+import { Input } from './components/ui/input';
+import { Label } from './components/ui/label';
+import { toast } from 'sonner';
+import { supabase, validateInviteCode } from './utils/supabase/client';
+import Dashboard from './components/Dashboard';
 
-// Fixed lazy imports - use correct syntax for default exports
-const AuthForm = lazy(() => import('./components/auth/AuthForm'));
-const BiolinkPage = lazy(() => import('./components/BiolinkPage'));
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const InviteOnlyLanding = lazy(() => import('./components/InviteOnlyLanding'));
-
-type ViewMode = 'loading' | 'invite-gate' | 'auth' | 'dashboard' | 'preview';
-
-// Exclusive platform notices with magenta theme
-const SupabaseSetupNotice = ({ onDismiss, onVerify }: { 
-  onSetupClick?: () => void; 
-  onDismiss: () => void; 
-  onVerify: () => void;
-}) => (
-  <div className="fixed top-4 right-4 z-40 max-w-sm">
-    <div className="bg-gradient-to-br from-fuchsia-500/10 to-purple-500/10 border border-fuchsia-500/30 text-fuchsia-400 p-4 rounded text-sm backdrop-blur-sm">
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-medium">🚀 Elite Database Connected</span>
-        <button 
-          onClick={onDismiss}
-          className="text-fuchsia-400 hover:text-fuchsia-300"
-        >
-          ×
-        </button>
-      </div>
-      <div className="space-y-2 text-fuchsia-400/80">
-        <p>Exclusive platform operational.</p>
-        <p>Elite member data secured.</p>
-        <div className="flex gap-2 mt-3">
-          <button 
-            onClick={onVerify}
-            className="px-3 py-1 bg-fuchsia-500/20 hover:bg-fuchsia-500/30 border border-fuchsia-500/30 rounded text-fuchsia-400 transition-colors text-xs"
-          >
-            Test Elite Access
-          </button>
-          <button 
-            onClick={onDismiss}
-            className="px-3 py-1 bg-transparent hover:bg-fuchsia-500/10 border border-fuchsia-500/30 rounded text-fuchsia-400 transition-colors text-xs"
-          >
-            Continue
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const DemoModeNotice = ({ onSetupClick, onDismiss }: { onSetupClick: () => void; onDismiss: () => void }) => (
-  <div className="fixed top-4 right-4 z-40 max-w-sm">
-    <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 p-4 rounded text-sm">
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-medium">⚠️ Elite Demo Mode</span>
-        <button 
-          onClick={onDismiss}
-          className="text-yellow-400 hover:text-yellow-300"
-        >
-          ×
-        </button>
-      </div>
-      <div className="space-y-2 text-yellow-400/80">
-        <p>Simulating exclusive platform.</p>
-        <p>Connect database for full elite access.</p>
-        <div className="flex gap-2 mt-3">
-          <button 
-            onClick={onSetupClick}
-            className="px-3 py-1 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/30 rounded text-yellow-400 transition-colors text-xs"
-          >
-            Elite Setup
-          </button>
-          <button 
-            onClick={onDismiss}
-            className="px-3 py-1 bg-transparent hover:bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400 transition-colors text-xs"
-          >
-            Continue Demo
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-);
+type ViewMode = 'main' | 'auth' | 'dashboard';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<ViewMode>('loading');
-  const [user, setUser] = useState<any>(null);
-  const [session, setSession] = useState<any>(null);
-  const [, setProfile] = useState<any>(null);
-  const [showSetupNotice, setShowSetupNotice] = useState(false);
-  const [showSupabaseSetup, setShowSupabaseSetup] = useState(false);
-  const [showVerification, setShowVerification] = useState(false);
-  
-  // Elite biolink settings for exclusive members with magenta theme
-  const [settings, setSettings] = useState({
-    // Exclusive Elite Bio-Link Features
-    customLink: 'elite-member',
-    title: 'Exclusive Elite Member',
-    description: 'Welcome to the inner circle ✨',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-    backgroundMedia: null,
-    musicUrl: '',
-    musicEnabled: false,
-    address: '',
-    favicon: '',
-    enterText: 'Enter Elite Space',
-    overlayEnabled: true,
-    fontFamily: 'Inter, sans-serif',
-    customCursor: '',
-    titleTabText: 'Elite | stolen.bio',
-    showBadges: true,
-    badges: [
-      { id: 'elite-member', name: 'Elite Member', icon: 'crown', color: '#d946ef' },
-      { id: 'founding-member', name: 'Founding Member', icon: 'star', color: '#c026d3' }
-    ],
-    socialLinks: [],
-    customLinks: [],
-    layoutType: 'square',
-    accentColor: '#d946ef',
-    textColor: '#ffffff',
-    backgroundColor: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #0f172a 100%)',
-    squareColor: '#1e293b',
-    iconColor: '#d946ef',
-    discordRPC: false,
-    discordInvite: '',
-    backgroundType: 'gradient',
-    descriptionEffect: 'glow',
-    borderGlow: true,
-    glowType: 'avatar',
-    titleType: 'gradient',
-    particlesEnabled: true,
-    particlesImage: '',
-    particlesColor: '#d946ef',
-    specialEffects: 'elite',
-    viewCounterEnabled: true,
-    viewCounterPosition: 'bottom-left',
-    mouseTrails: 'elite',
-    
-    // Exclusive Elite Settings
-    aliases: '',
-    customBadge: 'Founding Elite',
-    avatarDecoration: 'glow',
-    membershipTier: 'elite',
-    
-    // Elite Gamification & Exclusivity
-    stealCoinsEnabled: true,
-    affiliateCode: '',
-    displayRank: true,
-    milestoneNotifications: true,
-    eliteFeatures: true,
-    prioritySupport: true,
-    exclusiveAccess: true,
-    invitePrivileges: true
+  const [view, setView] = useState<ViewMode>('main');
+  const [isLogin, setIsLogin] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    inviteCode: ''
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState(null);
 
-  // Exclusive platform routes - all protected
-  const protectedRoutes = [
-    'dashboard', 'preview', 'elite', 'admin', 'settings', 
-    'leaderboard', 'exclusive', 'members', 'invite-manager'
-  ];
+  // Check for existing session on load
+  useEffect(() => {
+    // Check for existing Supabase session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        setView('dashboard');
+      }
+    });
 
-  const loadUserProfile = useCallback(async (userId: string) => {
-    try {
-      const { data: profileData, error } = await db.getProfile(userId);
-      
-      if (error) {
-        console.error('Error loading elite profile:', error);
-        return;
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        setView('dashboard');
+      } else {
+        setUser(null);
+        setView('main');
       }
-      
-      if (profileData) {
-        setProfile(profileData);
-        
-        // Update settings with elite member data
-        setSettings(prevSettings => ({
-          ...prevSettings,
-          customLink: profileData.username,
-          title: profileData.title || 'Elite Member',
-          description: profileData.description || 'Exclusive elite member of stolen.bio',
-          avatar: profileData.avatar || prevSettings.avatar,
-          backgroundMedia: profileData.background_media,
-          musicUrl: profileData.music_url,
-          address: profileData.address,
-          favicon: profileData.favicon,
-          enterText: profileData.enter_text || 'Enter Elite Space',
-          titleTabText: profileData.title_tab_text || 'Elite | stolen.bio',
-          showBadges: profileData.show_badges ?? true,
-          badges: profileData.badges || [
-            { id: 'elite-member', name: 'Elite Member', icon: 'crown', color: '#d946ef' }
-          ],
-          socialLinks: profileData.social_links || [],
-          customLinks: profileData.custom_links || [],
-          layoutType: profileData.layout_type || 'square',
-          accentColor: profileData.accent_color || '#d946ef',
-          textColor: profileData.text_color || '#ffffff',
-          backgroundColor: profileData.background_color || prevSettings.backgroundColor,
-          iconColor: profileData.icon_color || '#d946ef',
-          backgroundType: profileData.background_type || 'gradient',
-          descriptionEffect: profileData.description_effect || 'glow',
-          borderGlow: profileData.border_glow ?? true,
-          glowType: profileData.glow_type || 'avatar',
-          titleType: profileData.title_type || 'gradient',
-          particlesEnabled: profileData.particles_enabled ?? true,
-          particlesImage: profileData.particles_image || '',
-          particlesColor: profileData.particles_color || '#d946ef',
-          specialEffects: profileData.special_effects || 'elite',
-          viewCounterEnabled: profileData.view_counter_enabled ?? true,
-          viewCounterPosition: profileData.view_counter_position || 'bottom-left',
-          mouseTrails: profileData.mouse_trails || 'elite',
-          aliases: profileData.aliases || '',
-          customBadge: profileData.custom_badge || 'Elite',
-          avatarDecoration: profileData.avatar_decoration || 'glow',
-          membershipTier: profileData.membership_tier || 'elite',
-          affiliateCode: profileData.affiliate_code || '',
-          displayRank: profileData.display_rank ?? true,
-          milestoneNotifications: profileData.milestone_notifications ?? true,
-          eliteFeatures: profileData.elite_features ?? true,
-          prioritySupport: profileData.priority_support ?? true,
-          exclusiveAccess: true,
-          invitePrivileges: profileData.membership_tier === 'elite' || profileData.membership_tier === 'founder'
-        }));
-      }
-    } catch (error) {
-      console.error('Error loading elite member profile:', error);
-    }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const handleRouting = useCallback(async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
     try {
-      const path = window.location.pathname;
-      const urlParams = new URLSearchParams(window.location.search);
-      const referralCode = urlParams.get('ref');
-      const inviteCode = urlParams.get('invite');
-      
-      // Store referral/invite codes for exclusive access
-      if (referralCode) {
-        localStorage.setItem('referralCode', referralCode);
-      }
-      if (inviteCode) {
-        localStorage.setItem('validatedInviteCode', inviteCode);
-      }
-      
-      // Handle root path - show invite gate or dashboard
-      if (path === '/') {
-        if (session?.user) {
-          startTransition(() => {
-            setCurrentView('dashboard');
-          });
-        } else {
-          startTransition(() => {
-            setCurrentView('invite-gate');
-          });
-        }
-        return;
-      }
-
-      // Handle authentication routes
-      const pathSegment = path.substring(1);
-      
-      if (pathSegment === 'auth' || pathSegment === 'login' || pathSegment === 'join') {
-        startTransition(() => {
-          setCurrentView('auth');
+      if (isLogin) {
+        // Handle login
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password
         });
-        return;
-      }
-      
-      // Handle protected routes - require authentication
-      if (protectedRoutes.includes(pathSegment)) {
-        if (session?.user) {
-          if (pathSegment === 'dashboard') {
-            startTransition(() => {
-              setCurrentView('dashboard');
-            });
-          } else if (pathSegment === 'preview') {
-            startTransition(() => {
-              setCurrentView('preview');
-            });
-          } else {
-            // Other protected routes go to dashboard for now
-            startTransition(() => {
-              setCurrentView('dashboard');
-            });
+
+        if (error) {
+          throw error;
+        }
+
+        setUser(data.user);
+        setView('dashboard');
+        toast.success('Welcome back!');
+      } else {
+        // Handle registration
+        if (!validateInviteCode(formData.inviteCode)) {
+          throw new Error('Invalid invite code. Please check your code and try again.');
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              invite_code: formData.inviteCode
+            }
           }
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        if (data.user && !data.session) {
+          toast.success('Please check your email to confirm your account.');
         } else {
-          // Redirect to auth for protected routes
-          startTransition(() => {
-            setCurrentView('auth');
-          });
-          window.history.pushState({}, '', '/auth');
+          toast.success('Account created! Welcome to stolen.bio');
+          setUser(data.user);
+          setView('dashboard');
         }
-        return;
       }
-
-      // All other routes redirect to invite gate (exclusive access only)
-      startTransition(() => {
-        setCurrentView('invite-gate');
-      });
-      window.history.pushState({}, '', '/');
-
-    } catch (error) {
-      console.error('Elite routing error:', error);
-      startTransition(() => {
-        setCurrentView('invite-gate');
-      });
+    } catch (error: any) {
+      console.error('Authentication error:', error);
+      toast.error(error.message || 'Authentication failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-  }, [session, protectedRoutes]);
-
-  // Check Supabase configuration on mount
-  useEffect(() => {
-    console.log('🔧 Elite Database configured:', isSupabaseConfigured);
-    
-    if (!isSupabaseConfigured) {
-      setShowSetupNotice(true);
-      console.log('⚠️  Elite database not configured - using demo mode');
-    } else {
-      console.log('✅ Elite database configured - exclusive access ready');
-      setShowSetupNotice(true);
-    }
-  }, []);
-
-  // Initialize Supabase auth listener for elite members
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const { session: initialSession } = await auth.getSession();
-        
-        if (initialSession?.user) {
-          setSession(initialSession);
-          setUser(initialSession.user);
-          if (isSupabaseConfigured) {
-            await loadUserProfile(initialSession.user.id);
-          }
-          console.log('🎭 Elite member session restored');
-        }
-      } catch (error) {
-        console.error('Failed to restore elite session:', error);
-      }
-      
-      // Complete loading after session check
-      setTimeout(() => {
-        if (currentView === 'loading') {
-          handleRouting();
-        }
-      }, 1000);
-    };
-
-    initializeAuth();
-
-    // Set up auth state listener for elite platform
-    if (isSupabaseConfigured) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('🎭 Elite auth state change:', event, session?.user?.email);
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          setSession(session);
-          setUser(session.user);
-          await loadUserProfile(session.user.id);
-          
-          startTransition(() => {
-            setCurrentView('dashboard');
-          });
-          window.history.pushState({}, '', '/dashboard');
-          console.log('🎉 Elite member signed in');
-        } else if (event === 'SIGNED_OUT') {
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          
-          startTransition(() => {
-            setCurrentView('invite-gate');
-          });
-          window.history.pushState({}, '', '/');
-          console.log('👋 Elite member signed out');
-        }
-      });
-
-      return () => subscription.unsubscribe();
-    }
-  }, [currentView, handleRouting, loadUserProfile]);
-
-  const handleLoaderComplete = () => {
-    handleRouting();
   };
 
-  const handleRequestInvite = () => {
-    startTransition(() => {
-      setCurrentView('auth');
-    });
-    window.history.pushState({}, '', '/auth');
-  };
-
-  const handleBackToGate = () => {
-    startTransition(() => {
-      setCurrentView('invite-gate');
-    });
-    window.history.pushState({}, '', '/');
-  };
-
-  const handleAuthSuccess = async (userData: any, accessToken: string) => {
-    console.log('🎉 Elite member authentication successful');
-    
-    setUser(userData);
-    setSession({ user: userData, access_token: accessToken });
-    
-    // Load elite profile if Supabase is configured
-    if (isSupabaseConfigured) {
-      const { session: currentSession } = await auth.getSession();
-      if (currentSession) {
-        setSession(currentSession);
-        setUser(currentSession.user);
-        await loadUserProfile(currentSession.user.id);
-      }
-    }
-    
-    // Navigate to elite dashboard
-    startTransition(() => {
-      setCurrentView('dashboard');
-    });
-    window.history.pushState({}, '', '/dashboard');
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
   };
 
   const handleLogout = async () => {
-    try {
-      console.log('👋 Elite member logging out...');
-      
-      const { error } = await auth.signOut();
-      if (error) {
-        console.error('Elite logout error:', error);
-      }
-      
-      // Clear elite session data
-      localStorage.removeItem('referralCode');
-      localStorage.removeItem('validatedInviteCode');
-      
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      
-      startTransition(() => {
-        setCurrentView('invite-gate');
-      });
-      window.history.pushState({}, '', '/');
-      
-    } catch (error) {
-      console.error('Elite logout error:', error);
-      // Force logout for elite platform
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      startTransition(() => {
-        setCurrentView('invite-gate');
-      });
-      window.history.pushState({}, '', '/');
-    }
+    await supabase.auth.signOut();
+    setUser(null);
+    setFormData({ email: '', password: '', inviteCode: '' });
+    setView('main');
+    toast.success('Logged out');
   };
 
-  const handleSettingsChange = async (newSettings: typeof settings) => {
-    setSettings(newSettings);
-    
-    // Auto-save elite member settings
-    if (session?.user && isSupabaseConfigured) {
-      try {
-        console.log('💾 Saving elite member settings...');
-        
-        const profileUpdates = {
-          title: newSettings.title,
-          description: newSettings.description,
-          avatar: newSettings.avatar,
-          background_media: newSettings.backgroundMedia,
-          music_url: newSettings.musicUrl,
-          address: newSettings.address,
-          favicon: newSettings.favicon,
-          enter_text: newSettings.enterText,
-          title_tab_text: newSettings.titleTabText,
-          show_badges: newSettings.showBadges,
-          badges: newSettings.badges,
-          social_links: newSettings.socialLinks,
-          custom_links: newSettings.customLinks,
-          layout_type: newSettings.layoutType,
-          accent_color: newSettings.accentColor,
-          text_color: newSettings.textColor,
-          background_color: newSettings.backgroundColor,
-          icon_color: newSettings.iconColor,
-          background_type: newSettings.backgroundType,
-          description_effect: newSettings.descriptionEffect,
-          border_glow: newSettings.borderGlow,
-          glow_type: newSettings.glowType,
-          title_type: newSettings.titleType,
-          particles_enabled: newSettings.particlesEnabled,
-          particles_image: newSettings.particlesImage,
-          particles_color: newSettings.particlesColor,
-          special_effects: newSettings.specialEffects,
-          view_counter_enabled: newSettings.viewCounterEnabled,
-          view_counter_position: newSettings.viewCounterPosition,
-          mouse_trails: newSettings.mouseTrails,
-          aliases: newSettings.aliases,
-          custom_badge: newSettings.customBadge,
-          avatar_decoration: newSettings.avatarDecoration,
-          affiliate_code: newSettings.affiliateCode,
-          display_rank: newSettings.displayRank,
-          milestone_notifications: newSettings.milestoneNotifications,
-          elite_features: newSettings.eliteFeatures,
-          priority_support: newSettings.prioritySupport
-        };
-        
-        const { error } = await db.updateProfile(session.user.id, profileUpdates);
-        
-        if (error) {
-          console.error('Failed to save elite settings:', error);
-        } else {
-          console.log('✅ Elite settings saved successfully');
-        }
-      } catch (error) {
-        console.error('❌ Error saving elite settings:', error);
-      }
-    } else if (!isSupabaseConfigured) {
-      console.log('💾 Elite settings updated (demo mode)');
-    }
+  const handleHome = () => {
+    setView('main');
   };
 
-  const handlePreview = () => {
-    startTransition(() => {
-      setCurrentView('preview');
-    });
-    window.history.pushState({}, '', '/preview');
-  };
-
-  const handleBackToDashboard = () => {
-    startTransition(() => {
-      setCurrentView('dashboard');
-    });
-    window.history.pushState({}, '', '/dashboard');
-  };
-
-  // Handle browser navigation
-  useEffect(() => {
-    const handlePopState = () => {
-      handleRouting();
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [handleRouting]);
-
-  // Render notice based on Supabase configuration
-  const renderNotice = () => {
-    if (!showSetupNotice) return null;
-    
-    if (isSupabaseConfigured) {
-      return (
-        <SupabaseSetupNotice 
-          onSetupClick={() => setShowSupabaseSetup(true)}
-          onDismiss={() => setShowSetupNotice(false)}
-          onVerify={() => setShowVerification(true)}
-        />
-      );
-    } else {
-      return (
-        <DemoModeNotice 
-          onSetupClick={() => setShowSupabaseSetup(true)}
-          onDismiss={() => setShowSetupNotice(false)}
-        />
-      );
-    }
-  };
-
-  // Loading screen with elite theme
-  if (currentView === 'loading') {
+  // Main landing page
+  if (view === 'main') {
     return (
-      <>
-        <ProfessionalLoader onComplete={handleLoaderComplete} />
-        {renderNotice()}
-        <SupabaseSetup 
-          isOpen={showSupabaseSetup} 
-          onClose={() => setShowSupabaseSetup(false)} 
-        />
-        {showVerification && (
-          <SupabaseVerification 
-            onClose={() => setShowVerification(false)}
-          />
-        )}
-      </>
-    );
-  }
-
-  // Invite-only landing gate
-  if (currentView === 'invite-gate') {
-    return (
-      <>
-        <Suspense fallback={<ProfessionalLoader onComplete={() => {}} />}>
-          <InviteOnlyLanding onRequestInvite={handleRequestInvite} />
-        </Suspense>
-        {renderNotice()}
-        <SupabaseSetup 
-          isOpen={showSupabaseSetup} 
-          onClose={() => setShowSupabaseSetup(false)} 
-        />
-        {showVerification && (
-          <SupabaseVerification 
-            onClose={() => setShowVerification(false)}
-          />
-        )}
-      </>
-    );
-  }
-
-  // Elite authentication
-  if (currentView === 'auth') {
-    return (
-      <>
-        <Suspense fallback={<ProfessionalLoader onComplete={() => {}} />}>
-          <AuthForm 
-            onAuthSuccess={handleAuthSuccess} 
-            onBack={handleBackToGate}
-          />
-        </Suspense>
-        {renderNotice()}
-        <SupabaseSetup 
-          isOpen={showSupabaseSetup} 
-          onClose={() => setShowSupabaseSetup(false)} 
-        />
-        {showVerification && (
-          <SupabaseVerification 
-            onClose={() => setShowVerification(false)}
-          />
-        )}
-      </>
-    );
-  }
-
-  // Private biolink preview (elite members only)
-  if (currentView === 'preview') {
-    return (
-      <>
-        <div>
-          <div className="fixed top-4 left-4 z-50">
-            <button
-              onClick={handleBackToDashboard}
-              className="bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-700 hover:to-purple-700 backdrop-blur-sm text-white px-6 py-3 rounded-lg shadow-lg transition-all duration-200 border border-fuchsia-500/30 font-medium"
+      <div className="min-h-screen bg-black text-white">
+        {/* Header */}
+        <header className="flex justify-between items-center p-6 max-w-4xl mx-auto">
+          <motion.div 
+            className="text-xl font-medium"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            stolen.bio
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Button 
+              onClick={() => setView('auth')}
+              variant="outline"
+              className="border-white/20 bg-transparent hover:bg-white/5 text-white"
             >
-              ← Back to Elite Dashboard
+              Sign In
+            </Button>
+          </motion.div>
+        </header>
+
+        {/* Main content */}
+        <main className="flex flex-col items-center justify-center min-h-[calc(100vh-120px)] px-6">
+          <div className="max-w-2xl text-center space-y-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <h1 className="text-4xl md:text-6xl font-medium mb-6 leading-tight">
+                One link for
+                <br />
+                everything you are
+              </h1>
+              
+              <p className="text-lg text-white/60 mb-8 max-w-xl mx-auto">
+                Share your content, build your audience, and connect your world with a single link.
+              </p>
+            </motion.div>
+
+            <motion.div
+              className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+            >
+              <Button 
+                onClick={() => setView('auth')}
+                className="bg-white text-black hover:bg-white/90 px-8 py-3 rounded-full font-medium"
+              >
+                Get Started
+                <ArrowRight size={16} className="ml-2" />
+              </Button>
+              
+              <span className="text-white/40 text-sm">
+                Invite only
+              </span>
+            </motion.div>
+
+            {/* Feature list */}
+            <motion.div 
+              className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16 pt-16 border-t border-white/10"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6, duration: 0.6 }}
+            >
+              <div className="text-center">
+                <h3 className="text-sm font-medium text-white/80 mb-2">Customizable</h3>
+                <p className="text-sm text-white/50">
+                  Make it yours with custom themes and layouts
+                </p>
+              </div>
+              
+              <div className="text-center">
+                <h3 className="text-sm font-medium text-white/80 mb-2">Analytics</h3>
+                <p className="text-sm text-white/50">
+                  Track your engagement and grow your audience
+                </p>
+              </div>
+              
+              <div className="text-center">
+                <h3 className="text-sm font-medium text-white/80 mb-2">Simple</h3>
+                <p className="text-sm text-white/50">
+                  Easy to set up, easier to share
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </main>
+
+        {/* Footer */}
+        <footer className="text-center p-6">
+          <p className="text-white/30 text-xs">
+            A curated platform for creators
+          </p>
+        </footer>
+      </div>
+    );
+  }
+
+  // Dashboard view for logged in users
+  if (view === 'dashboard') {
+    return (
+      <Dashboard 
+        user={user} 
+        onLogout={handleLogout}
+        onHome={handleHome}
+      />
+    );
+  }
+
+  // Auth view (login/register)
+  return (
+    <div className="min-h-screen bg-black text-white flex flex-col">
+      {/* Header */}
+      <header className="flex justify-between items-center p-6 max-w-4xl mx-auto w-full">
+        <button
+          onClick={() => setView('main')}
+          className="text-white/60 hover:text-white transition-colors"
+        >
+          ← Back
+        </button>
+        <div className="text-xl font-medium">stolen.bio</div>
+        <div /> {/* Spacer */}
+      </header>
+
+      {/* Auth form */}
+      <main className="flex-1 flex items-center justify-center px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-sm"
+        >
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-medium mb-2">
+              {isLogin ? 'Sign in' : 'Create account'}
+            </h1>
+            <p className="text-white/60 text-sm">
+              {isLogin ? 'Welcome back' : 'Join the community'}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email field */}
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm text-white/80">
+                Email
+              </Label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/40" />
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  required
+                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-white/20 focus:bg-white/10"
+                  placeholder="Enter your email"
+                />
+              </div>
+            </div>
+
+            {/* Password field */}
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm text-white/80">
+                Password
+              </Label>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/40" />
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  required
+                  className="pl-10 pr-10 bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-white/20 focus:bg-white/10"
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/40 hover:text-white/60"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Invite code field (registration only) */}
+            {!isLogin && (
+              <motion.div 
+                className="space-y-2"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <Label htmlFor="inviteCode" className="text-sm text-white/80">
+                  Invite Code
+                </Label>
+                <div className="relative">
+                  <Key size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/40" />
+                  <Input
+                    id="inviteCode"
+                    name="inviteCode"
+                    type="text"
+                    value={formData.inviteCode}
+                    onChange={handleInputChange}
+                    required={!isLogin}
+                    className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/40 focus:border-white/20 focus:bg-white/10"
+                    placeholder="Try: WELCOME1, DEMO123, or STOLEN1"
+                  />
+                </div>
+                <p className="text-xs text-white/40">
+                  Valid codes: WELCOME1, BETA2024, EARLY001, TESTCODE, DEMO123, STOLEN1, BIO2024, ALPHA001
+                </p>
+              </motion.div>
+            )}
+
+            {/* Submit button */}
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+              className="w-full bg-white text-black hover:bg-white/90 font-medium mt-6"
+            >
+              {isLoading ? (
+                <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+              ) : (
+                <>
+                  {isLogin ? <LogIn size={16} className="mr-2" /> : <UserPlus size={16} className="mr-2" />}
+                  {isLogin ? 'Sign In' : 'Create Account'}
+                </>
+              )}
+            </Button>
+          </form>
+
+          {/* Toggle login/register */}
+          <div className="text-center mt-6">
+            <button
+              type="button"
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-white/60 hover:text-white text-sm transition-colors"
+            >
+              {isLogin ? (
+                <>Need an account? <span className="underline">Sign up</span></>
+              ) : (
+                <>Already have an account? <span className="underline">Sign in</span></>
+              )}
             </button>
           </div>
-          
-          <Suspense fallback={<ProfessionalLoader onComplete={() => {}} />}>
-            <BiolinkPage settings={settings} isPreview={true} />
-          </Suspense>
-        </div>
-        {renderNotice()}
-        <SupabaseSetup 
-          isOpen={showSupabaseSetup} 
-          onClose={() => setShowSupabaseSetup(false)} 
-        />
-        {showVerification && (
-          <SupabaseVerification 
-            onClose={() => setShowVerification(false)}
-          />
-        )}
-      </>
-    );
-  }
-
-  // Elite Dashboard (requires authentication)
-  if (!session?.user) {
-    return (
-      <>
-        <Suspense fallback={<ProfessionalLoader onComplete={() => {}} />}>
-          <AuthForm 
-            onAuthSuccess={handleAuthSuccess} 
-            onBack={handleBackToGate}
-          />
-        </Suspense>
-        {renderNotice()}
-        <SupabaseSetup 
-          isOpen={showSupabaseSetup} 
-          onClose={() => setShowSupabaseSetup(false)} 
-        />
-        {showVerification && (
-          <SupabaseVerification 
-            onClose={() => setShowVerification(false)}
-          />
-        )}
-      </>
-    );
-  }
-
-  // Elite Member Dashboard
-  return (
-    <>
-      <Suspense fallback={<ProfessionalLoader onComplete={() => {}} />}>
-        <Dashboard 
-          settings={settings}
-          onSettingsChange={handleSettingsChange}
-          onPreview={handlePreview}
-          onLogout={handleLogout}
-          user={user}
-          accessToken={session.access_token}
-        />
-      </Suspense>
-      {renderNotice()}
-      <SupabaseSetup 
-        isOpen={showSupabaseSetup} 
-        onClose={() => setShowSupabaseSetup(false)} 
-      />
-      {showVerification && (
-        <SupabaseVerification 
-          onClose={() => setShowVerification(false)}
-        />
-      )}
-    </>
+        </motion.div>
+      </main>
+    </div>
   );
 }
