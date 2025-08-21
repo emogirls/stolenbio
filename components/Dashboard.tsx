@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { 
   Home, 
   Zap, 
@@ -21,10 +21,11 @@ import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
+import type { User } from '@supabase/supabase-js';
 
 interface DashboardProps {
-  user: any;
+  user: User | null;
   onLogout: () => void;
   onHome: () => void;
 }

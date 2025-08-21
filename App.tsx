@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Eye, EyeOff, LogIn, UserPlus, ArrowRight, Mail, Lock, Key } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { supabase, validateInviteCode } from './utils/supabase/client';
 import Dashboard from './components/Dashboard';
+import type { User } from '@supabase/supabase-js';
 
 type ViewMode = 'main' | 'auth' | 'dashboard';
 
@@ -20,7 +21,7 @@ export default function App() {
     inviteCode: ''
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<User | null>(null);
 
   // Check for existing session on load
   useEffect(() => {
