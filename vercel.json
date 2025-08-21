@@ -4,6 +4,12 @@
   "outputDirectory": "dist",
   "installCommand": "npm install --legacy-peer-deps",
   "devCommand": "npm run dev",
+  "functions": {
+    "app/**": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     {
       "source": "/(.*)",

@@ -1,16 +1,38 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://eunktufcvnarizlnrfej.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bmt0dWZjdm5hcml6bG5yZmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2MDIzNTcsImV4cCI6MjA3MDE3ODM1N30.YPhd7abpLcK3zSAP1tWPi0K0jRotu3E8RS2hzlmi9vg'
+// Production environment variables - these must be set in your deployment environment
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-// Mock invite codes for development
-const VALID_INVITE_CODES = [
-  'WELCOME1', 'BETA2024', 'EARLY001', 'TESTCODE', 'DEMO123', 
-  'STOLEN1', 'BIO2024', 'ALPHA001'
-]
-
-export const validateInviteCode = (code: string): boolean => {
-  return VALID_INVITE_CODES.includes(code.toUpperCase())
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    'Missing Supabase environment variables. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment.'
+  );
 }
+
+export const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Production invite code validation - this should validate against your database
+export const validateInviteCode = async (code: string): Promise<boolean> => {
+  try {
+    // Query the invite_codes table in your Supabase database
+    const { data, error } = await supabase
+      .from('invite_codes')
+      .select('*')
+      .eq('code', code.toUpperCase())
+      .eq('is_active', true)
+      .single();
+
+    if (error) {
+      console.error('Error validating invite code:', error);
+      return false;
+    }
+
+    return !!data;
+  } catch (error) {
+    console.error('Error validating invite code:', error);
+    return false;
+  }
+};
+
+export default supabase;
