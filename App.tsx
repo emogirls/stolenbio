@@ -13,8 +13,8 @@ const InviteOnlyLanding = lazy(() => import('./components/InviteOnlyLanding'));
 type ViewMode = 'loading' | 'invite-gate' | 'auth' | 'dashboard' | 'preview';
 
 // Exclusive platform notices with magenta theme
-const SupabaseSetupNotice = ({ onSetupClick, onDismiss, onVerify }: { 
-  onSetupClick: () => void; 
+const SupabaseSetupNotice = ({ onDismiss, onVerify }: { 
+  onSetupClick?: () => void; 
   onDismiss: () => void; 
   onVerify: () => void;
 }) => (
@@ -89,7 +89,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState<ViewMode>('loading');
   const [user, setUser] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [, setProfile] = useState<any>(null);
   const [showSetupNotice, setShowSetupNotice] = useState(false);
   const [showSupabaseSetup, setShowSupabaseSetup] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
@@ -112,7 +112,10 @@ export default function App() {
     customCursor: '',
     titleTabText: 'Elite | stolen.bio',
     showBadges: true,
-    badges: ['elite-member', 'founding-member'],
+    badges: [
+      { id: 'elite-member', name: 'Elite Member', icon: 'crown', color: '#d946ef' },
+      { id: 'founding-member', name: 'Founding Member', icon: 'star', color: '#c026d3' }
+    ],
     socialLinks: [],
     customLinks: [],
     layoutType: 'square',
@@ -185,7 +188,9 @@ export default function App() {
           enterText: profileData.enter_text || 'Enter Elite Space',
           titleTabText: profileData.title_tab_text || 'Elite | stolen.bio',
           showBadges: profileData.show_badges ?? true,
-          badges: profileData.badges || ['elite-member'],
+          badges: profileData.badges || [
+            { id: 'elite-member', name: 'Elite Member', icon: 'crown', color: '#d946ef' }
+          ],
           socialLinks: profileData.social_links || [],
           customLinks: profileData.custom_links || [],
           layoutType: profileData.layout_type || 'square',

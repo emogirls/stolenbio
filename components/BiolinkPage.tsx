@@ -52,6 +52,7 @@ interface BiolinkPageProps {
     showBadges: boolean;
     viewCounterEnabled: boolean;
     viewCounterPosition: 'top-right' | 'bottom-left' | 'disabled' | string;
+    layoutType?: string;
     layout?: 'minimal' | 'standard' | 'advanced' | 'premium';
     theme?: 'clean' | 'glass' | 'neon' | 'gradient';
     animations?: boolean;
@@ -72,6 +73,7 @@ export default function BiolinkPage({ settings, viewCount = 1200, isPreview = fa
     animations: settings.animations !== false,
     borderGlow: settings.borderGlow || false,
     particlesEnabled: settings.particlesEnabled || false,
+    layoutType: settings.layoutType || 'square',
   };
 
   return (
