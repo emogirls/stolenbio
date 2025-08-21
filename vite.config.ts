@@ -22,11 +22,15 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    target: 'esnext',
+    minify: 'terser',
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs']
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs'],
+          motion: ['framer-motion'],
+          supabase: ['@supabase/supabase-js']
         }
       }
     }
@@ -34,5 +38,8 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'framer-motion', '@supabase/supabase-js']
   }
 })

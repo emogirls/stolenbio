@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { Eye, EyeOff, LogIn, UserPlus, ArrowRight, Mail, Lock, Key } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';

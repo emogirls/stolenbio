@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { 
   Home, 
   Zap, 
   ShoppingCart, 
   HeadphonesIcon, 
   Gift,
-  User,
+  User as UserIcon,
   Upload,
   X,
   Plus,
@@ -334,7 +334,7 @@ export default function Dashboard({ user, onLogout, onHome }: DashboardProps) {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center">
-                  <User size={16} />
+                  <UserIcon size={16} />
                 </div>
                 <span className="text-sm text-white/70">{user?.email}</span>
               </div>
