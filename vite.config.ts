@@ -5,7 +5,9 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      jsxRuntime: 'automatic',
+    }),
     tailwindcss()
   ],
   resolve: {
@@ -40,6 +42,7 @@ export default defineConfig({
     host: true
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'framer-motion', '@supabase/supabase-js']
+    include: ['react', 'react-dom', 'framer-motion', '@supabase/supabase-js', 'date-fns'],
+    exclude: ['@supabase/supabase-js']
   }
 })
