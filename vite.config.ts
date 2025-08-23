@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [
     react({
       jsxRuntime: 'automatic',
+      jsxImportSource: 'react'
     }),
     tailwindcss()
   ],
@@ -18,6 +19,8 @@ export default defineConfig({
       '@/styles': path.resolve(__dirname, './styles')
     }
   },
+  root: '.',
+  publicDir: 'public',
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
   },
@@ -27,6 +30,7 @@ export default defineConfig({
     target: 'esnext',
     minify: 'esbuild',
     rollupOptions: {
+      input: './index.html',
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
@@ -43,6 +47,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'framer-motion', '@supabase/supabase-js', 'date-fns'],
-    exclude: ['@supabase/supabase-js']
+    exclude: []
   }
 })
