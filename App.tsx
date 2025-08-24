@@ -125,7 +125,7 @@ export default function App() {
   // Main landing page
   if (view === 'main') {
     return (
-      <div className="min-h-screen bg-black text-white">
+      <div className="min-h-screen bg-background text-foreground">
         <Toaster theme="dark" />
         
         {/* Header */}
@@ -272,7 +272,7 @@ export default function App() {
 
   // Auth view (login/register)
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Toaster theme="dark" />
       
       {/* Header */}

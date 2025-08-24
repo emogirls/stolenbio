@@ -11,6 +11,14 @@ export default defineConfig({
     }),
     tailwindcss()
   ],
+  css: {
+    devSourcemap: true,
+    preprocessorOptions: {
+      css: {
+        charset: false
+      }
+    }
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
